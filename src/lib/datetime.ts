@@ -1,5 +1,5 @@
 
-import { formatInTimeZone, toDate, zonedTimeToUtc, utcToZonedTime } from 'date-fns-tz';
+import { formatInTimeZone, toDate, fromZonedTime, toZonedTime } from 'date-fns-tz';
 import { format as formatDateFns, parseISO } from 'date-fns';
 
 export const TIMEZONE = 'Asia/Singapore';
@@ -11,12 +11,12 @@ export const formatToSingaporeTime = (date: Date | string, formatStr: string = '
 
 export const convertToSingaporeTime = (date: Date | string): Date => {
   const dateObj = typeof date === 'string' ? parseISO(date) : date;
-  return utcToZonedTime(dateObj, TIMEZONE);
+  return toZonedTime(dateObj, TIMEZONE);
 };
 
 export const convertToUTC = (date: Date | string): Date => {
   const dateObj = typeof date === 'string' ? parseISO(date) : date;
-  return zonedTimeToUtc(dateObj, TIMEZONE);
+  return fromZonedTime(dateObj, TIMEZONE);
 };
 
 // Get current date and time in Singapore timezone as a Date object
@@ -59,5 +59,5 @@ export const formatToSingaporeISOString = (date: Date): string => {
 
 // Parses an ISO string (potentially with 'Z' or offset) and ensures it's a Date object representing Singapore time
 export const parseToSingaporeDate = (isoString: string): Date => {
-  return utcToZonedTime(parseISO(isoString), TIMEZONE);
+  return toZonedTime(parseISO(isoString), TIMEZONE);
 };
