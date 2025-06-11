@@ -28,7 +28,8 @@ export const transformBookingsForCalendar = (
   if (!bookingsData) return [];
 
   const events: CalendarEvent[] = [];
-  const venuesToDisplay = selectedVenues.length > 0 ? selectedVenues : DEFAULT_VENUES.map(v => v.name);
+  // Iterate directly over selectedVenues. If selectedVenues is empty, no events will be added.
+  const venuesToDisplay = selectedVenues;
 
   for (const venueName of venuesToDisplay) {
     const venueBookings = bookingsData[venueName] || [];
@@ -55,3 +56,4 @@ export const transformBookingsForCalendar = (
 export const generateBookingId = (): string => {
   return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
 };
+
