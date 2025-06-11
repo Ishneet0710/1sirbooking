@@ -46,9 +46,9 @@ const AuthDialog: React.FC<AuthDialogProps> = ({ isOpen, onClose }) => {
           </DialogDescription>
         </DialogHeader>
         <div className="py-6 px-2">
-          <Button 
-            onClick={handleGoogleSignIn} 
-            disabled={isSubmitting} 
+          <Button
+            onClick={handleGoogleSignIn}
+            disabled={isSubmitting}
             className="w-full"
             variant="outline"
           >
@@ -56,7 +56,7 @@ const AuthDialog: React.FC<AuthDialogProps> = ({ isOpen, onClose }) => {
             {isSubmitting ? 'Signing In...' : 'Sign in with Google'}
           </Button>
         </div>
-        <DialogFooter className="text-center text-xs text-muted-foreground pb-4">
+        <DialogFooter className="text-center text-xs text-muted-foreground pb-4 px-2">
           By signing in, you agree to our terms.
         </DialogFooter>
       </DialogContent>
