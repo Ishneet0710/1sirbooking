@@ -8,7 +8,7 @@ import { auth } from '@/lib/firebase'; // Assuming auth is exported from your fi
 
 // !!! IMPORTANT: REPLACE THIS WITH YOUR ACTUAL ADMIN FIREBASE UID !!!
 // You can find this in your Firebase project console under Authentication -> Users
-const ADMIN_UID = "YOUR_ADMIN_UID_HERE"; 
+const ADMIN_UID = "zchimXGgJvZlWUiTjABzSKf0R4Y2"; 
 
 interface AuthContextType {
   user: User | null;
@@ -30,7 +30,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (currentUser) {
         console.log("AuthContext: Current user UID:", currentUser.uid); // For debugging
-        if (ADMIN_UID === "YOUR_ADMIN_UID_HERE") {
+        if (ADMIN_UID === "zchimXGgJvZlWUiTjABzSKf0R4Y2") {
           console.warn("AuthContext: ADMIN_UID is not set. isAdmin will be false.");
         }
         setIsAdmin(currentUser.uid === ADMIN_UID);
