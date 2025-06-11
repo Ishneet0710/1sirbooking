@@ -8,14 +8,16 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 
 interface VenueFilterProps {
   venues: Venue[];
   selectedVenues: string[];
   onFilterChange: (selected: string[]) => void;
+  className?: string; // Added className prop
 }
 
-const VenueFilter: React.FC<VenueFilterProps> = ({ venues, selectedVenues, onFilterChange }) => {
+const VenueFilter: React.FC<VenueFilterProps> = ({ venues, selectedVenues, onFilterChange, className }) => {
   const handleVenueToggle = (venueName: string) => {
     const currentIndex = selectedVenues.indexOf(venueName);
     const newSelectedVenues = [...selectedVenues];
@@ -40,11 +42,11 @@ const VenueFilter: React.FC<VenueFilterProps> = ({ venues, selectedVenues, onFil
   const areSomeSelected = selectedVenues.length > 0 && !areAllSelected;
 
   return (
-    <Card className="w-full shadow-lg">
+    <Card className={cn("w-full shadow-lg flex flex-col", className)}> {/* Modified: Added flex flex-col and merged className */}
       <CardHeader>
         <CardTitle className="text-xl font-headline">Filter Venues</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col flex-grow"> {/* Modified: Added flex flex-col flex-grow */}
         <div className="flex items-center space-x-2 mb-4">
           <Checkbox
             id="select-all-venues"
@@ -56,7 +58,7 @@ const VenueFilter: React.FC<VenueFilterProps> = ({ venues, selectedVenues, onFil
             Select/Deselect All
           </Label>
         </div>
-        <ScrollArea className="h-40"> {/* Adjust height as needed */}
+        <ScrollArea className="flex-grow"> {/* Modified: Changed h-40 to flex-grow */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {venues.map(venue => (
               <div key={venue.name} className="flex items-center space-x-2 p-2 rounded-md hover:bg-muted transition-colors">

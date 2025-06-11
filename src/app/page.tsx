@@ -24,10 +24,10 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import LoginLogoutButton from '@/components/auth/LoginLogoutButton';
-import { useAuth } from '@/context/AuthContext'; 
+import { useAuth } from '@/context/AuthContext';
 
 
-import { db } from '@/lib/firebase'; 
+import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query } from 'firebase/firestore';
 
 export default function VenueFlowPage() {
@@ -36,11 +36,11 @@ export default function VenueFlowPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
-  const { user, isAdmin } = useAuth(); 
+  const { user, isAdmin } = useAuth();
 
   const [isBookingFormOpen, setIsBookingFormOpen] = useState(false);
   const [bookingFormInitialData, setBookingFormInitialData] = useState<Partial<Booking & { startDate?: Date, endDate?: Date }>>({});
-  
+
   const [isBookingInfoOpen, setIsBookingInfoOpen] = useState(false);
   const [selectedBookingInfo, setSelectedBookingInfo] = useState<Booking | null>(null);
 
@@ -68,23 +68,22 @@ export default function VenueFlowPage() {
       setIsLoading(false);
     });
 
-    return () => unsubscribe(); 
+    return () => unsubscribe();
   }, [toast]);
 
 
   const bookingsData: BookingsData | null = useMemo(() => {
-    if (isLoading || !allBookings) return null; 
+    if (isLoading || !allBookings) return null;
 
     const groupedBookings: BookingsData = {};
     DEFAULT_VENUES.forEach(venue => {
-      groupedBookings[venue.name] = []; 
+      groupedBookings[venue.name] = [];
     });
 
     allBookings.forEach(booking => {
       if (groupedBookings[booking.venue]) {
         groupedBookings[booking.venue].push(booking);
       } else {
-        // If a booking exists for a venue not in DEFAULT_VENUES (e.g. old data), still include it
         if (!groupedBookings[booking.venue]) {
            groupedBookings[booking.venue] = [];
         }
@@ -105,10 +104,10 @@ export default function VenueFlowPage() {
       return;
     }
     const startDate = parseToSingaporeDate(arg.startStr);
-    let endDate = arg.endStr ? parseToSingaporeDate(arg.endStr) : new Date(startDate.getTime() + 60 * 60 * 1000); 
-    
+    let endDate = arg.endStr ? parseToSingaporeDate(arg.endStr) : new Date(startDate.getTime() + 60 * 60 * 1000);
+
     if (arg.allDay && arg.view.type === 'dayGridMonth') {
-       endDate = new Date(startDate.getTime() + 60 * 60 * 1000); 
+       endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
     }
 
     setBookingFormInitialData({ startDate, endDate });
@@ -136,7 +135,7 @@ export default function VenueFlowPage() {
           description: 'This time slot is already booked for the selected venue.',
           variant: 'destructive',
         });
-        return false; 
+        return false;
       }
     }
 
@@ -149,65 +148,59 @@ export default function VenueFlowPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        if (response.status === 403) { 
+        if (response.status === 403) {
            toast({ title: 'Not Authorized', description: errorData.message || 'You do not have permission to save this booking.', variant: 'destructive' });
         } else {
           throw new Error(errorData.message || `Failed to save booking: ${response.statusText}`);
         }
         return false;
       }
-      
+
       toast({
         title: 'Booking Saved!',
         description: `${booking.title} for ${booking.venue} has been successfully ${bookingFormInitialData.id ? 'updated' : 'created'}.`,
       });
-      return true; 
+      return true;
     } catch (err: any) {
       toast({
         title: 'Error Saving Booking',
         description: err.message || 'Could not save the booking.',
         variant: 'destructive',
       });
-      return false; 
+      return false;
     }
   };
 
   const handleDeleteBooking = async (bookingId: string, venueName: string) => {
-    if (!user) { 
+    if (!user) {
       toast({ title: "Not Authorized", description: "You must be logged in to delete bookings.", variant: "destructive" });
       return;
     }
-    
-    // Client-side check for isAdmin for UX (actual enforcement is by Firestore rules)
-    // if (!isAdmin) {
-    //   toast({ title: "Not Authorized", description: "You do not have permission to delete bookings.", variant: "destructive" });
-    //   return;
-    // }
-    console.log("Attempting delete as user:", user?.uid, "IsAdmin (client-side):", isAdmin); // DEBUG LOG
+    console.log("Attempting delete as user:", user?.uid, "IsAdmin (client-side):", isAdmin);
 
     try {
       const response = await fetch('/api/bookings', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId, venueName }), 
+        body: JSON.stringify({ bookingId, venueName }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-         if (response.status === 403) { 
+         if (response.status === 403) {
            toast({ title: 'Not Authorized', description: errorData.message || 'You do not have permission to delete this booking.', variant: 'destructive' });
         } else {
           toast({ title: 'Error Deleting Booking', description: errorData.message || `Failed to delete booking: ${response.statusText}`, variant: 'destructive' });
         }
         return;
       }
-      
+
       toast({
         title: 'Booking Deleted',
         description: 'The booking has been successfully deleted.',
       });
     } catch (err: any) {
-      console.error("handleDeleteBooking catch error:", err); // Log the actual error object
+      console.error("handleDeleteBooking catch error:", err);
       toast({
         title: 'Error Deleting Booking',
         description: err.message || 'Could not delete the booking.',
@@ -219,7 +212,7 @@ export default function VenueFlowPage() {
   const calendarEvents = transformBookingsForCalendar(bookingsData, selectedVenues);
   const calendarKey = `${selectedVenues.join('-')}_${calendarEvents.length}_${allBookings.length}`;
 
-  if (isLoading && allBookings.length === 0) { 
+  if (isLoading && allBookings.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-8 space-y-8 bg-background">
         <h1 className="text-4xl font-headline text-primary">VenueFlow</h1>
@@ -247,11 +240,12 @@ export default function VenueFlowPage() {
       </header>
 
       <main className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-3 hidden lg:block">
+        <div className="lg:col-span-3 hidden lg:flex lg:flex-col"> {/* Modified: Added lg:flex lg:flex-col */}
           <VenueFilter
-            venues={DEFAULT_VENUES} 
+            venues={DEFAULT_VENUES}
             selectedVenues={selectedVenues}
             onFilterChange={handleFilterChange}
+            className="flex-grow" // Added: Make VenueFilter card grow
           />
         </div>
 
@@ -309,7 +303,7 @@ export default function VenueFlowPage() {
         </Sheet>
       </div>
 
-      {isBookingFormOpen && user && ( 
+      {isBookingFormOpen && user && (
         <BookingForm
           isOpen={isBookingFormOpen}
           onClose={() => setIsBookingFormOpen(false)}
