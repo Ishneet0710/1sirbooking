@@ -10,7 +10,7 @@ import BookingInfoDialog from '@/components/venue-flow/BookingInfoDialog';
 import VenueCalendarWrapper from '@/components/venue-flow/VenueCalendarWrapper';
 import { transformBookingsForCalendar, hasConflict as checkHasConflict } from '@/lib/bookings-utils';
 import { useToast } from '@/hooks/use-toast';
-import type { DateSelectArg, EventClickArg } from '@fullcalendar/core';
+import type { DateSelectArg, EventClickArg, DatesSetArg } from '@fullcalendar/core';
 import { parseToSingaporeDate } from '@/lib/datetime';
 import { CalendarDays, Filter, UserCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -45,6 +45,8 @@ export default function VenueFlowPage() {
   const [selectedBookingInfo, setSelectedBookingInfo] = useState<Booking | null>(null);
 
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
+  const [currentCalendarViewStartDate, setCurrentCalendarViewStartDate] = useState<string>(new Date().toISOString());
+
 
   useEffect(() => {
     setIsLoading(true);
@@ -209,8 +211,13 @@ export default function VenueFlowPage() {
     }
   };
 
+  const handleDatesSet = (dateInfo: DatesSetArg) => {
+    setCurrentCalendarViewStartDate(dateInfo.startStr);
+  };
+
   const calendarEvents = transformBookingsForCalendar(bookingsData, selectedVenues);
-  const calendarKey = `${selectedVenues.join('-')}_${calendarEvents.length}_${allBookings.length}`;
+  const calendarKey = `${selectedVenues.join('-')}_${calendarEvents.length}_${allBookings.length}_${currentCalendarViewStartDate}`;
+
 
   if (isLoading && allBookings.length === 0) {
     return (
@@ -240,16 +247,16 @@ export default function VenueFlowPage() {
       </header>
 
       <main className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-3 hidden lg:flex lg:flex-col"> {/* Modified: Added lg:flex lg:flex-col */}
+        <div className="lg:col-span-4 hidden lg:flex lg:flex-col">
           <VenueFilter
             venues={DEFAULT_VENUES}
             selectedVenues={selectedVenues}
             onFilterChange={handleFilterChange}
-            className="flex-grow" // Added: Make VenueFilter card grow
+            className="flex-grow" 
           />
         </div>
 
-        <div className="lg:col-span-9">
+        <div className="lg:col-span-8">
           {error && (
             <Card className="mb-4 border-destructive bg-destructive/10">
               <CardContent className="p-4">
@@ -270,6 +277,7 @@ export default function VenueFlowPage() {
             events={calendarEvents}
             onDateClick={handleDateClick}
             onEventClick={handleEventClick}
+            onDatesSet={handleDatesSet}
             calendarKey={calendarKey}
           />
         </div>
