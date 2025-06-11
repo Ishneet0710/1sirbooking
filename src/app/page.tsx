@@ -228,16 +228,14 @@ export default function VenueFlowPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col items-center p-4 md:p-8">
       <header className="w-full max-w-7xl mb-8 flex justify-between items-center">
-        <div className="flex items-center"> {/* Flex container for icon and text */}
-          <CalendarDays size={40} className="mr-3 text-accent hidden sm:block" />
-          <div>
-            <h1 className="text-3xl md:text-5xl font-headline text-primary">
-              Venue1SIR
-            </h1>
-            <p className="text-md md:text-lg text-muted-foreground mt-1">
-              Seamlessly manage resources!
-            </p>
-          </div>
+        <div className="flex items-center space-x-2">
+          <CalendarDays size={24} className="text-accent hidden sm:block" />
+          <h1 className="text-lg sm:text-xl font-headline text-primary">
+            Venue1SIR
+          </h1>
+          <p className="text-xs sm:text-sm text-muted-foreground">
+            Seamlessly manage resources!
+          </p>
         </div>
         <LoginLogoutButton />
       </header>
