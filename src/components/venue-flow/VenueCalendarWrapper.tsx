@@ -60,8 +60,8 @@ const VenueCalendarWrapper: React.FC<VenueCalendarWrapperProps> = ({ events, onD
         displayEventEnd={true} // Show event end times
         longPressDelay={250} // For mobile interactions
         eventShortHeight={20}
-        slotMinTime="07:00:00" // Business hours start
-        slotMaxTime="22:00:00" // Business hours end
+        slotMinTime="00:00:00" // MODIFIED: Expand to full day
+        slotMaxTime="24:00:00" // MODIFIED: Expand to full day
         scrollTime="09:00:00" // Initial scroll to 9 AM in timeGrid views
         
         // Custom styling via class names if needed, but prefer CSS vars or direct event props
