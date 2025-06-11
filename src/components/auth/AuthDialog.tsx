@@ -56,7 +56,7 @@ const AuthDialog: React.FC<AuthDialogProps> = ({ isOpen, onClose }) => {
             {isSubmitting ? 'Signing In...' : 'Sign in with Google'}
           </Button>
         </div>
-        <DialogFooter className="text-center text-xs text-muted-foreground pb-4 px-2">
+        <DialogFooter className="flex justify-center text-xs text-muted-foreground pb-4 px-2">
           By signing in, you agree to our terms.
         </DialogFooter>
       </DialogContent>
