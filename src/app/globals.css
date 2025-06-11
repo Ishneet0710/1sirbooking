@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,25 +9,25 @@ body {
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
+    --background: 0 0% 96.1%; /* #F5F5F5 Very light gray */
+    --foreground: 0 0% 3.9%; /* Standard dark text */
     --card: 0 0% 100%;
     --card-foreground: 0 0% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
+    --primary: 262 52% 50%; /* #673AB7 Deep violet */
+    --primary-foreground: 0 0% 98%; /* Light color for contrast with primary */
+    --secondary: 0 0% 92%; /* Slightly darker than background for secondary elements */
     --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
+    --muted: 0 0% 90%; /* Muted gray */
     --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
+    --accent: 174 100% 29%; /* #009688 Teal */
+    --accent-foreground: 0 0% 98%; /* Light color for contrast with accent */
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 0 0% 89.8%;
     --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
+    --ring: 262 52% 50%; /* Use primary color for ring */
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
@@ -49,19 +50,19 @@ body {
     --card-foreground: 0 0% 98%;
     --popover: 0 0% 3.9%;
     --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
+    --primary: 262 52% 55%; /* Slightly lighter violet for dark mode */
+    --primary-foreground: 0 0% 98%;
     --secondary: 0 0% 14.9%;
     --secondary-foreground: 0 0% 98%;
     --muted: 0 0% 14.9%;
     --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
+    --accent: 174 100% 35%; /* Slightly lighter teal for dark mode */
     --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
     --border: 0 0% 14.9%;
     --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
+    --ring: 262 52% 55%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
@@ -86,3 +87,76 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* FullCalendar custom styling */
+.fc { /* Add this class to your FullCalendar component */
+  font-family: var(--font-body);
+}
+
+.fc .fc-toolbar-title {
+  font-family: var(--font-headline);
+  font-size: 1.5em; /* Tailwind text-2xl */
+  color: hsl(var(--foreground));
+}
+
+.fc .fc-button {
+  background-color: hsl(var(--primary)) !important;
+  border-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  font-family: var(--font-body);
+  text-transform: capitalize;
+  border-radius: var(--radius);
+  padding: 0.5rem 1rem;
+}
+
+.fc .fc-button:hover, .fc .fc-button:focus, .fc .fc-button:active {
+  background-color: hsl(var(--primary) / 0.9) !important;
+  border-color: hsl(var(--primary) / 0.9) !important;
+}
+
+.fc .fc-button-primary:disabled {
+  background-color: hsl(var(--muted)) !important;
+  border-color: hsl(var(--muted)) !important;
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.fc-theme-standard .fc-list-day-cushion, .fc-theme-standard .fc-list-table tbody tr:first-child .fc-list-day-cushion {
+  background-color: hsl(var(--secondary));
+  color: hsl(var(--secondary-foreground));
+}
+
+.fc .fc-daygrid-day.fc-day-today {
+  background-color: hsl(var(--accent) / 0.1) !important;
+}
+
+.fc .fc-event {
+  border-radius: var(--radius);
+  border-width: 1px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem; /* Tailwind text-sm */
+}
+
+.fc-direction-ltr .fc-daygrid-event.fc-event-start, .fc-direction-rtl .fc-daygrid-event.fc-event-end {
+  margin-left: 2px;
+}
+.fc-direction-ltr .fc-daygrid-event.fc-event-end, .fc-direction-rtl .fc-daygrid-event.fc-event-start {
+  margin-right: 2px;
+}
+
+.fc-h-event {
+  border: 1px solid hsl(var(--border));
+  background-color: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+}
+
+.fc-event-main-frame {
+  color: hsl(var(--primary-foreground)); /* Ensuring text inside events is visible on colored backgrounds */
+}
+
+.fc-event-title {
+   color: hsl(var(--primary-foreground));
+}
+
+/* Specific styles for events based on venue colors (these will be applied via className or style prop) */
+/* Example: .event-venue-conference-room-a { background-color: #FF5722; border-color: #FF5722; } */
+/* This will be handled by FullCalendar's eventColor/backgroundColor properties directly */
