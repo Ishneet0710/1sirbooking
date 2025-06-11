@@ -5,14 +5,14 @@ import { getFirestore } from "firebase/firestore";
 // IMPORTANT: Replace with your actual Firebase project configuration
 // You can find this in your Firebase project settings:
 // Project settings > General > Your apps > Web app > Firebase SDK snippet > Config
-const firebaseConfig: FirebaseOptions = {
-  apiKey: "YOUR_API_KEY", // Replace with your API key
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com", // Replace with your auth domain
-  projectId: "YOUR_PROJECT_ID", // Replace with your project ID
-  storageBucket: "YOUR_PROJECT_ID.appspot.com", // Replace with your storage bucket
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID", // Replace with your messaging sender ID
-  appId: "YOUR_APP_ID", // Replace with your app ID
-  // measurementId: "YOUR_MEASUREMENT_ID" // Optional: if you use Google Analytics
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyCb9Wi3rFfvGeLTCHGpjgTH2xMOj_FFmxY",
+  authDomain: "venueflow-ky7eh.firebaseapp.com",
+  projectId: "venueflow-ky7eh",
+  storageBucket: "venueflow-ky7eh.firebasestorage.app",
+  messagingSenderId: "859453489861",
+  appId: "1:859453489861:web:1e7f2b903ef3ee5114a6ac"
 };
 
 // Initialize Firebase
