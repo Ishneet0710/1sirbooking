@@ -3,14 +3,12 @@
 
 import type React from 'react';
 import { useState } from 'react';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from '@/hooks/use-toast';
+import { ChromeIcon } from 'lucide-react'; // Or a generic Google icon if available
 
 interface AuthDialogProps {
   isOpen: boolean;
@@ -18,39 +16,19 @@ interface AuthDialogProps {
 }
 
 const AuthDialog: React.FC<AuthDialogProps> = ({ isOpen, onClose }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
+  const handleGoogleSignIn = async () => {
     setIsSubmitting(true);
+    const provider = new GoogleAuthProvider();
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      toast({ title: 'Login Successful!', description: 'Welcome back.' });
+      await signInWithPopup(auth, provider);
+      toast({ title: 'Login Successful!', description: 'Welcome!' });
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Failed to login. Please check your credentials.');
-      toast({ title: 'Login Failed', description: err.message || 'Please check your credentials.', variant: 'destructive' });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setIsSubmitting(true);
-    try {
-      await createUserWithEmailAndPassword(auth, email, password);
-      toast({ title: 'Sign Up Successful!', description: 'Welcome! You are now logged in.' });
-      onClose();
-    } catch (err: any) {
-      setError(err.message || 'Failed to sign up. Please try again.');
-      toast({ title: 'Sign Up Failed', description: err.message || 'Please try again.', variant: 'destructive' });
+      console.error("Google Sign-In error:", err);
+      toast({ title: 'Login Failed', description: err.message || 'Could not sign in with Google. Please try again.', variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
     }
@@ -60,87 +38,27 @@ const AuthDialog: React.FC<AuthDialogProps> = ({ isOpen, onClose }) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="sm:max-w-md bg-card shadow-xl rounded-lg">
+      <DialogContent className="sm:max-w-xs bg-card shadow-xl rounded-lg">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-headline">Authenticate</DialogTitle>
-          <DialogDescription>
-            Sign in or create an account to manage your bookings.
+          <DialogTitle className="text-2xl font-headline text-center">Sign In</DialogTitle>
+          <DialogDescription className="text-center pt-2">
+            Sign in with your Google account to manage bookings.
           </DialogDescription>
         </DialogHeader>
-        <Tabs defaultValue="login" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="login">Login</TabsTrigger>
-            <TabsTrigger value="signup">Sign Up</TabsTrigger>
-          </TabsList>
-          <TabsContent value="login">
-            <form onSubmit={handleLogin} className="space-y-4 pt-4">
-              <div>
-                <Label htmlFor="login-email">Email</Label>
-                <Input
-                  id="login-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  required
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label htmlFor="login-password">Password</Label>
-                <Input
-                  id="login-password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  className="mt-1"
-                />
-              </div>
-              {error && <p className="text-sm text-destructive">{error}</p>}
-              <DialogFooter className="pt-2">
-                <Button type="submit" disabled={isSubmitting} className="w-full">
-                  {isSubmitting ? 'Logging In...' : 'Login'}
-                </Button>
-              </DialogFooter>
-            </form>
-          </TabsContent>
-          <TabsContent value="signup">
-            <form onSubmit={handleSignUp} className="space-y-4 pt-4">
-              <div>
-                <Label htmlFor="signup-email">Email</Label>
-                <Input
-                  id="signup-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  required
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label htmlFor="signup-password">Password</Label>
-                <Input
-                  id="signup-password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Choose a strong password"
-                  required
-                  className="mt-1"
-                />
-              </div>
-              {error && <p className="text-sm text-destructive">{error}</p>}
-              <DialogFooter className="pt-2">
-                <Button type="submit" disabled={isSubmitting} className="w-full">
-                  {isSubmitting ? 'Signing Up...' : 'Sign Up'}
-                </Button>
-              </DialogFooter>
-            </form>
-          </TabsContent>
-        </Tabs>
+        <div className="py-6 px-2">
+          <Button 
+            onClick={handleGoogleSignIn} 
+            disabled={isSubmitting} 
+            className="w-full"
+            variant="outline"
+          >
+            <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512"><path fill="currentColor" d="M488 261.8C488 403.3 381.7 512 244 512 110.5 512 0 398.8 0 256S110.5 0 244 0c69.8 0 130.8 28.5 173.4 74.2L345 146.1c-29.3-27.9-67.8-46.4-107.2-46.4-82.3 0-150.1 67.8-150.1 150.1s67.8 150.1 150.1 150.1c88.3 0 126.8-66.9 130.3-101.6H244v-70.8h244c2.6 13.1 4.3 28.3 4.3 43.1z"></path></svg>
+            {isSubmitting ? 'Signing In...' : 'Sign in with Google'}
+          </Button>
+        </div>
+        <DialogFooter className="text-center text-xs text-muted-foreground pb-4">
+          By signing in, you agree to our terms.
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

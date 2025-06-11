@@ -8,7 +8,7 @@ import { auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import { LogIn, LogOut, UserCircle } from 'lucide-react';
-import AuthDialog from './AuthDialog';
+import AuthDialog from './AuthDialog'; // This will now be the Google Sign-In dialog
 import { useToast } from '@/hooks/use-toast';
 import {
   DropdownMenu,
@@ -46,9 +46,11 @@ const LoginLogoutButton: React.FC = () => {
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="relative h-9 w-9 rounded-full">
             <Avatar className="h-9 w-9">
+              {/* Use user.photoURL for Google profile picture */}
               <AvatarImage src={user.photoURL || undefined} alt={user.displayName || user.email || 'User'} />
               <AvatarFallback>
-                {user.email ? user.email[0].toUpperCase() : <UserCircle size={20}/>}
+                {/* Fallback to initial or UserCircle icon */}
+                {user.displayName ? user.displayName[0].toUpperCase() : (user.email ? user.email[0].toUpperCase() : <UserCircle size={20}/>)}
               </AvatarFallback>
             </Avatar>
           </Button>
@@ -80,6 +82,7 @@ const LoginLogoutButton: React.FC = () => {
         <LogIn size={16} className="mr-2" />
         Login
       </Button>
+      {/* AuthDialog will now present the Google Sign-In option */}
       <AuthDialog isOpen={isAuthDialogOpen} onClose={() => setIsAuthDialogOpen(false)} />
     </>
   );
