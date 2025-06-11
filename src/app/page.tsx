@@ -23,11 +23,11 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import LoginLogoutButton from '@/components/auth/LoginLogoutButton'; // Import LoginLogoutButton
-import { useAuth } from '@/context/AuthContext'; // Import useAuth
+import LoginLogoutButton from '@/components/auth/LoginLogoutButton';
+import { useAuth } from '@/context/AuthContext'; 
 
 
-import { db } from '@/lib/firebase'; // Firebase setup
+import { db } from '@/lib/firebase'; 
 import { collection, onSnapshot, query } from 'firebase/firestore';
 
 export default function VenueFlowPage() {
@@ -36,7 +36,7 @@ export default function VenueFlowPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
-  const { user, isAdmin } = useAuth(); // Get user and isAdmin status
+  const { user, isAdmin } = useAuth(); 
 
   const [isBookingFormOpen, setIsBookingFormOpen] = useState(false);
   const [bookingFormInitialData, setBookingFormInitialData] = useState<Partial<Booking & { startDate?: Date, endDate?: Date }>>({});
@@ -84,7 +84,11 @@ export default function VenueFlowPage() {
       if (groupedBookings[booking.venue]) {
         groupedBookings[booking.venue].push(booking);
       } else {
-        groupedBookings[booking.venue] = [booking];
+        // If a booking exists for a venue not in DEFAULT_VENUES (e.g. old data), still include it
+        if (!groupedBookings[booking.venue]) {
+           groupedBookings[booking.venue] = [];
+        }
+        groupedBookings[booking.venue].push(booking);
       }
     });
     return groupedBookings;
@@ -145,7 +149,7 @@ export default function VenueFlowPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        if (response.status === 403) { // Forbidden - likely Firestore rule denial
+        if (response.status === 403) { 
            toast({ title: 'Not Authorized', description: errorData.message || 'You do not have permission to save this booking.', variant: 'destructive' });
         } else {
           throw new Error(errorData.message || `Failed to save booking: ${response.statusText}`);
@@ -169,30 +173,31 @@ export default function VenueFlowPage() {
   };
 
   const handleDeleteBooking = async (bookingId: string, venueName: string) => {
-    if (!user) { // Basic client-side check, server rules are the authority
+    if (!user) { 
       toast({ title: "Not Authorized", description: "You must be logged in to delete bookings.", variant: "destructive" });
       return;
     }
-    // A more specific client-side check for isAdmin could be added here for UX,
-    // but Firestore rules are the real enforcer.
+    
+    // Client-side check for isAdmin for UX (actual enforcement is by Firestore rules)
     // if (!isAdmin) {
     //   toast({ title: "Not Authorized", description: "You do not have permission to delete bookings.", variant: "destructive" });
     //   return;
     // }
+    console.log("Attempting delete as user:", user?.uid, "IsAdmin (client-side):", isAdmin); // DEBUG LOG
 
     try {
       const response = await fetch('/api/bookings', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId, venueName }),
+        body: JSON.stringify({ bookingId, venueName }), 
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-         if (response.status === 403) { // Forbidden - likely Firestore rule denial for delete
+         if (response.status === 403) { 
            toast({ title: 'Not Authorized', description: errorData.message || 'You do not have permission to delete this booking.', variant: 'destructive' });
         } else {
-          throw new Error(errorData.message || `Failed to delete booking: ${response.statusText}`);
+          toast({ title: 'Error Deleting Booking', description: errorData.message || `Failed to delete booking: ${response.statusText}`, variant: 'destructive' });
         }
         return;
       }
@@ -202,6 +207,7 @@ export default function VenueFlowPage() {
         description: 'The booking has been successfully deleted.',
       });
     } catch (err: any) {
+      console.error("handleDeleteBooking catch error:", err); // Log the actual error object
       toast({
         title: 'Error Deleting Booking',
         description: err.message || 'Could not delete the booking.',
@@ -303,7 +309,7 @@ export default function VenueFlowPage() {
         </Sheet>
       </div>
 
-      {isBookingFormOpen && user && ( /* Only open form if user is logged in */
+      {isBookingFormOpen && user && ( 
         <BookingForm
           isOpen={isBookingFormOpen}
           onClose={() => setIsBookingFormOpen(false)}
@@ -322,8 +328,6 @@ export default function VenueFlowPage() {
           onClose={() => setIsBookingInfoOpen(false)}
           booking={selectedBookingInfo}
           onDeleteBooking={handleDeleteBooking}
-          // Consider passing isAdmin or user object here if dialog needs to conditionally show delete button
-          // For now, delete is attempted, and server rules will block if not authorized
         />
       )}
     </div>

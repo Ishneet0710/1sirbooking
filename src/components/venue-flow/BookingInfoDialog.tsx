@@ -9,6 +9,7 @@ import { formatToSingaporeTime } from '@/lib/datetime';
 import { Badge } from '@/components/ui/badge';
 import { CalendarDays, Clock, MapPin, Trash2 } from 'lucide-react';
 import { getVenueColor } from '@/config/venues';
+import { useAuth } from '@/context/AuthContext'; // Import useAuth
 
 interface BookingInfoDialogProps {
   isOpen: boolean;
@@ -18,6 +19,8 @@ interface BookingInfoDialogProps {
 }
 
 const BookingInfoDialog: React.FC<BookingInfoDialogProps> = ({ isOpen, onClose, booking, onDeleteBooking }) => {
+  const { isAdmin } = useAuth(); // Get isAdmin status
+
   if (!isOpen || !booking) return null;
 
   const venueColor = getVenueColor(booking.venue);
@@ -54,9 +57,12 @@ const BookingInfoDialog: React.FC<BookingInfoDialogProps> = ({ isOpen, onClose, 
           </div>
         </div>
         <DialogFooter className="pt-6 sm:justify-between">
-          <Button variant="destructive" onClick={handleDelete} className="flex items-center gap-2">
-            <Trash2 size={16} /> Delete Booking
-          </Button>
+          {isAdmin && ( // Only show delete button if user is admin (client-side check for UX)
+            <Button variant="destructive" onClick={handleDelete} className="flex items-center gap-2">
+              <Trash2 size={16} /> Delete Booking
+            </Button>
+          )}
+          {!isAdmin && <div />} {/* Placeholder to keep layout consistent if delete button is hidden */}
           <DialogClose asChild>
             <Button type="button" variant="outline">Close</Button>
           </DialogClose>
