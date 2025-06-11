@@ -128,6 +128,7 @@ export default function VenueFlowPage() {
       toast({ title: "Not Authorized", description: "You must be logged in to save a booking.", variant: "destructive" });
       return false;
     }
+    console.log("Attempting save as user:", user?.uid);
 
     if (bookingsData && bookingsData[booking.venue]) {
       if (checkHasConflict(booking, bookingsData[booking.venue])) {
@@ -227,14 +228,14 @@ export default function VenueFlowPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col items-center p-4 md:p-8">
       <header className="w-full max-w-7xl mb-8 flex justify-between items-center">
-        <div className="flex items-center">
+        <div className="flex items-center"> {/* Flex container for icon and text */}
           <CalendarDays size={40} className="mr-3 text-accent hidden sm:block" />
           <div>
             <h1 className="text-3xl md:text-5xl font-headline text-primary">
               Venue1SIR
             </h1>
             <p className="text-md md:text-lg text-muted-foreground mt-1">
-              Seamlessly manage resources in 1SIR!
+              Seamlessly manage resources!
             </p>
           </div>
         </div>
