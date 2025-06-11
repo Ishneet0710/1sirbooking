@@ -5,8 +5,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from '@/context/AuthContext'; // Import AuthProvider
 
 export const metadata: Metadata = {
-  title: 'VenueFlow',
-  description: 'Seamless Venue Booking Application',
+  title: 'Venue1SIR',
+  description: 'Seamlessly manage resources in 1SIR!',
 };
 
 export default function RootLayout({

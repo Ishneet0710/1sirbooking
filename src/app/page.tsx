@@ -217,7 +217,7 @@ export default function VenueFlowPage() {
   if (isLoading && allBookings.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-8 space-y-8 bg-background">
-        <h1 className="text-4xl font-headline text-primary">VenueFlow</h1>
+        <h1 className="text-4xl font-headline text-primary">Venue1SIR</h1>
         <p className="text-lg text-muted-foreground">Loading bookings...</p>
         <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
       </div>
@@ -231,10 +231,10 @@ export default function VenueFlowPage() {
           <CalendarDays size={40} className="mr-3 text-accent hidden sm:block" />
           <div>
             <h1 className="text-3xl md:text-5xl font-headline text-primary">
-              VenueFlow
+              Venue1SIR
             </h1>
             <p className="text-md md:text-lg text-muted-foreground mt-1">
-              Seamlessly manage and book your venue spaces.
+              Seamlessly manage resources in 1SIR!
             </p>
           </div>
         </div>
@@ -247,7 +247,7 @@ export default function VenueFlowPage() {
             venues={DEFAULT_VENUES}
             selectedVenues={selectedVenues}
             onFilterChange={handleFilterChange}
-            className="flex-grow" 
+            className="flex-grow"
           />
         </div>
 
