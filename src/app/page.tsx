@@ -229,19 +229,16 @@ export default function VenueFlowPage() {
     <div className="min-h-screen bg-background flex flex-col items-center p-4 md:p-8">
       <header className="w-full max-w-7xl mb-8 flex justify-between items-center">
         <div className="flex items-center space-x-2">
-          <CalendarDays size={24} className="text-accent hidden sm:block" />
-          <h1 className="text-lg sm:text-xl font-headline text-primary">
+          <CalendarDays size={20} className="text-accent" /> {/* Adjusted icon size */}
+          <h1 className="text-lg font-headline text-primary"> {/* Adjusted text size */}
             Venue1SIR
           </h1>
-          <p className="text-xs sm:text-sm text-muted-foreground">
-            Seamlessly manage resources!
-          </p>
         </div>
         <LoginLogoutButton />
       </header>
 
       <main className="w-full max-w-7xl lg:grid lg:grid-cols-12 lg:gap-6 lg:items-stretch">
-        <div className="lg:col-span-4 hidden lg:flex lg:flex-col">
+        <div className="lg:col-span-4 hidden lg:flex lg:flex-col"> {/* Changed from lg:col-span-3 */}
           <VenueFilter
             venues={DEFAULT_VENUES}
             selectedVenues={selectedVenues}
@@ -250,7 +247,7 @@ export default function VenueFlowPage() {
           />
         </div>
 
-        <div className="lg:col-span-8">
+        <div className="lg:col-span-8"> {/* Changed from lg:col-span-9 */}
           {error && (
             <Card className="mb-4 border-destructive bg-destructive/10">
               <CardContent className="p-4">
