@@ -7,14 +7,13 @@ import { getAuth } from "firebase/auth"; // Import getAuth
 // You can find this in your Firebase project settings:
 // Project settings > General > Your apps > Web app > Firebase SDK snippet > Config
 // Your web app's Firebase configuration
-const firebaseConfig: FirebaseOptions = {
-  apiKey: "YOUR_ACTUAL_API_KEY", // From your Firebase console
-  authDomain: "YOUR_ACTUAL_PROJECT_ID.firebaseapp.com", // From your Firebase console
-  projectId: "YOUR_ACTUAL_PROJECT_ID", // From your Firebase console
-  storageBucket: "YOUR_ACTUAL_PROJECT_ID.appspot.com", // From your Firebase console
-  messagingSenderId: "YOUR_ACTUAL_MESSAGING_SENDER_ID", // From your Firebase console
-  appId: "YOUR_ACTUAL_APP_ID", // From your Firebase console
-  // measurementId: "YOUR_MEASUREMENT_ID" // Optional: if you use Google Analytics
+const firebaseConfig = {
+  apiKey: "AIzaSyCb9Wi3rFfvGeLTCHGpjgTH2xMOj_FFmxY",
+  authDomain: "venueflow-ky7eh.firebaseapp.com",
+  projectId: "venueflow-ky7eh",
+  storageBucket: "venueflow-ky7eh.firebasestorage.app",
+  messagingSenderId: "859453489861",
+  appId: "1:859453489861:web:1e7f2b903ef3ee5114a6ac"
 };
 
 // Initialize Firebase
