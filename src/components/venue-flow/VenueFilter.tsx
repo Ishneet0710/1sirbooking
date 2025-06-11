@@ -14,7 +14,7 @@ interface VenueFilterProps {
   venues: Venue[];
   selectedVenues: string[];
   onFilterChange: (selected: string[]) => void;
-  className?: string; // Added className prop
+  className?: string;
 }
 
 const VenueFilter: React.FC<VenueFilterProps> = ({ venues, selectedVenues, onFilterChange, className }) => {
@@ -42,11 +42,11 @@ const VenueFilter: React.FC<VenueFilterProps> = ({ venues, selectedVenues, onFil
   const areSomeSelected = selectedVenues.length > 0 && !areAllSelected;
 
   return (
-    <Card className={cn("w-full shadow-lg flex flex-col", className)}> {/* Modified: Added flex flex-col and merged className */}
+    <Card className={cn("w-full shadow-lg flex flex-col", className)}>
       <CardHeader>
         <CardTitle className="text-xl font-headline">Filter Venues</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col flex-grow"> {/* Modified: Added flex flex-col flex-grow */}
+      <CardContent className="flex flex-col flex-grow">
         <div className="flex items-center space-x-2 mb-4">
           <Checkbox
             id="select-all-venues"
@@ -58,7 +58,7 @@ const VenueFilter: React.FC<VenueFilterProps> = ({ venues, selectedVenues, onFil
             Select/Deselect All
           </Label>
         </div>
-        <ScrollArea className="flex-grow"> {/* Modified: Changed h-40 to flex-grow */}
+        <ScrollArea className="flex-grow">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {venues.map(venue => (
               <div key={venue.name} className="flex items-center space-x-2 p-2 rounded-md hover:bg-muted transition-colors">
@@ -75,7 +75,7 @@ const VenueFilter: React.FC<VenueFilterProps> = ({ venues, selectedVenues, onFil
                 >
                   {venue.name}
                 </Label>
-                <span className="w-3 h-3" style={{ backgroundColor: venue.color }} aria-hidden="true"></span>
+                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: venue.color }} aria-hidden="true"></span>
               </div>
             ))}
           </div>
