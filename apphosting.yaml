@@ -1,5 +1,8 @@
+
 # Settings to manage and configure a Firebase App Hosting backend.
 # https://firebase.google.com/docs/app-hosting/configure
+
+runtime: nodejs20 # Specify the Node.js runtime
 
 runConfig:
   # Increase this value if you'd like to automatically spin up
