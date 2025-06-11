@@ -7,7 +7,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import listPlugin from '@fullcalendar/list';
-import type { DateSelectArg, EventClickArg, EventInput, DatesSetArg } from '@fullcalendar/core';
+import type { DateSelectArg, EventClickArg, EventInput } from '@fullcalendar/core';
 import type { CalendarEvent } from '@/types'; // Use our CalendarEvent for props
 import { TIMEZONE } from '@/lib/datetime';
 
@@ -16,10 +16,9 @@ interface VenueCalendarWrapperProps {
   onDateClick: (arg: DateSelectArg) => void;
   onEventClick: (arg: EventClickArg) => void;
   calendarKey: string; // For forcing re-render
-  onDatesSet?: (dateInfo: DatesSetArg) => void; // New prop
 }
 
-const VenueCalendarWrapper: React.FC<VenueCalendarWrapperProps> = ({ events, onDateClick, onEventClick, calendarKey, onDatesSet }) => {
+const VenueCalendarWrapper: React.FC<VenueCalendarWrapperProps> = ({ events, onDateClick, onEventClick, calendarKey }) => {
   return (
     <div className="p-4 bg-card rounded-lg shadow-lg min-h-[700px] fc"> {/* Added fc class */}
       <FullCalendar
@@ -38,7 +37,6 @@ const VenueCalendarWrapper: React.FC<VenueCalendarWrapperProps> = ({ events, onD
         weekends={true}
         select={onDateClick}
         eventClick={onEventClick}
-        datesSet={onDatesSet} // Pass the new prop here
         editable={false} // For now, no drag-and-drop editing
         droppable={false}
         timeZone={TIMEZONE}

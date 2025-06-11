@@ -10,7 +10,7 @@ import BookingInfoDialog from '@/components/venue-flow/BookingInfoDialog';
 import VenueCalendarWrapper from '@/components/venue-flow/VenueCalendarWrapper';
 import { transformBookingsForCalendar, hasConflict as checkHasConflict } from '@/lib/bookings-utils';
 import { useToast } from '@/hooks/use-toast';
-import type { DateSelectArg, EventClickArg, DatesSetArg } from '@fullcalendar/core';
+import type { DateSelectArg, EventClickArg } from '@fullcalendar/core';
 import { parseToSingaporeDate } from '@/lib/datetime';
 import { CalendarDays, Filter, UserCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -45,7 +45,6 @@ export default function VenueFlowPage() {
   const [selectedBookingInfo, setSelectedBookingInfo] = useState<Booking | null>(null);
 
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
-  const [currentCalendarViewStartDate, setCurrentCalendarViewStartDate] = useState<string>(new Date().toISOString());
 
 
   useEffect(() => {
@@ -211,12 +210,8 @@ export default function VenueFlowPage() {
     }
   };
 
-  const handleDatesSet = (dateInfo: DatesSetArg) => {
-    setCurrentCalendarViewStartDate(dateInfo.startStr);
-  };
-
   const calendarEvents = transformBookingsForCalendar(bookingsData, selectedVenues);
-  const calendarKey = `${selectedVenues.join('-')}_${calendarEvents.length}_${allBookings.length}_${currentCalendarViewStartDate}`;
+  const calendarKey = `${selectedVenues.join('-')}_${calendarEvents.length}_${allBookings.length}`;
 
 
   if (isLoading && allBookings.length === 0) {
@@ -246,7 +241,7 @@ export default function VenueFlowPage() {
         <LoginLogoutButton />
       </header>
 
-      <main className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <main className="w-full max-w-7xl lg:grid lg:grid-cols-12 lg:gap-6 lg:items-stretch">
         <div className="lg:col-span-4 hidden lg:flex lg:flex-col">
           <VenueFilter
             venues={DEFAULT_VENUES}
@@ -277,7 +272,6 @@ export default function VenueFlowPage() {
             events={calendarEvents}
             onDateClick={handleDateClick}
             onEventClick={handleEventClick}
-            onDatesSet={handleDatesSet}
             calendarKey={calendarKey}
           />
         </div>
