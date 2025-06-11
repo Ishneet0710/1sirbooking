@@ -75,7 +75,7 @@ const VenueFilter: React.FC<VenueFilterProps> = ({ venues, selectedVenues, onFil
                 >
                   {venue.name}
                 </Label>
-                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: venue.color }} aria-hidden="true"></span>
+                <span className="w-3 h-3" style={{ backgroundColor: venue.color }} aria-hidden="true"></span>
               </div>
             ))}
           </div>
