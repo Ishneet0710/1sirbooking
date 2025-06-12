@@ -1,11 +1,31 @@
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { collection, getDocs, setDoc, deleteDoc, doc, query, where, writeBatch } from 'firebase/firestore';
+import { db } from '@/lib/firebase'; // Client SDK for Firestore
+import { admin } from '@/lib/firebase-admin'; // Admin SDK
+import { ADMIN_UID } from '@/config/admin'; // Admin UID
+import { collection, getDocs, setDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
 import type { Booking } from '@/types';
 import { hasConflict as checkConflictUtil } from '@/lib/bookings-utils';
 
-// GET all bookings
+async function verifyAdmin(request: NextRequest): Promise<string | null> {
+  const authorization = request.headers.get('Authorization');
+  if (!authorization?.startsWith('Bearer ')) {
+    return null; // No token
+  }
+  const idToken = authorization.split('Bearer ')[1];
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    if (decodedToken.uid === ADMIN_UID) {
+      return decodedToken.uid; // User is admin
+    }
+    return null; // User is not admin
+  } catch (error) {
+    console.error("Error verifying token:", error);
+    return null; // Token verification failed
+  }
+}
+
+// GET all bookings (remains public or auth-gated as per general app requirements, not admin-only for viewing)
 export async function GET() {
   try {
     const bookingsCol = collection(db, 'bookings');
@@ -21,8 +41,13 @@ export async function GET() {
   }
 }
 
-// POST a new booking or update an existing one
+// POST a new booking or update an existing one (Admin Only)
 export async function POST(request: NextRequest) {
+  const adminUid = await verifyAdmin(request);
+  if (!adminUid) {
+    return NextResponse.json({ message: 'Unauthorized. Admin access required.' }, { status: 403 });
+  }
+
   try {
     const newBooking: Booking = await request.json();
 
@@ -30,12 +55,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Invalid booking data provided.' }, { status: 400 });
     }
 
-    // Server-side conflict check
+    // Server-side conflict check (using client SDK for Firestore, as before)
     const venueBookingsQuery = query(collection(db, "bookings"), where("venue", "==", newBooking.venue));
     const venueBookingsSnapshot = await getDocs(venueBookingsQuery);
     const existingVenueBookings: Booking[] = [];
     venueBookingsSnapshot.forEach(doc => {
-      // Exclude the current booking if we are updating it
       if (doc.id !== newBooking.id) {
         existingVenueBookings.push({ id: doc.id, ...doc.data() } as Booking);
       }
@@ -45,13 +69,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Booking conflict detected.' }, { status: 409 });
     }
 
-    // Firestore document ID will be newBooking.id
     const bookingRef = doc(db, 'bookings', newBooking.id);
-    // The data to set should not include the id itself if it's the doc id.
     const { id, ...bookingData } = newBooking;
     await setDoc(bookingRef, bookingData); 
 
-    return NextResponse.json(newBooking, { status: 201 }); // Return the full booking object
+    return NextResponse.json(newBooking, { status: 201 });
 
   } catch (error) {
     console.error("POST /api/bookings error:", error);
@@ -59,10 +81,15 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE a booking
+// DELETE a booking (Admin Only)
 export async function DELETE(request: NextRequest) {
+  const adminUid = await verifyAdmin(request);
+  if (!adminUid) {
+    return NextResponse.json({ message: 'Unauthorized. Admin access required.' }, { status: 403 });
+  }
+
   try {
-    const { bookingId } = await request.json(); // venueName is not strictly needed if bookingId is unique
+    const { bookingId } = await request.json();
 
     if (!bookingId) {
       return NextResponse.json({ message: 'Booking ID is required.' }, { status: 400 });

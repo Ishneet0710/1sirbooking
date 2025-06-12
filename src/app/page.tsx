@@ -100,8 +100,8 @@ export default function VenueFlowPage() {
   };
 
   const handleDateClick = (arg: DateSelectArg) => {
-    if (!user) {
-      toast({ title: "Authentication Required", description: "Please log in to create a booking.", variant: "default" });
+    if (!isAdmin) { // Check for admin status
+      toast({ title: "Admin Action Required", description: "Only administrators can create bookings.", variant: "default" });
       return;
     }
     const startDate = parseToSingaporeDate(arg.startStr);
@@ -125,10 +125,14 @@ export default function VenueFlowPage() {
 
   const handleSubmitBooking = async (booking: Booking): Promise<boolean> => {
     if (!user) {
-      toast({ title: "Not Authorized", description: "You must be logged in to save a booking.", variant: "destructive" });
+      toast({ title: "Not Logged In", description: "You must be logged in to save a booking.", variant: "destructive" });
       return false;
     }
-    console.log("Attempting save as user:", user?.uid);
+    if (!isAdmin) {
+      toast({ title: "Not Authorized", description: "Only administrators can save bookings.", variant: "destructive" });
+      return false;
+    }
+    console.log("Attempting save as admin user:", user?.uid);
 
     if (bookingsData && bookingsData[booking.venue]) {
       if (checkHasConflict(booking, bookingsData[booking.venue])) {
@@ -142,9 +146,13 @@ export default function VenueFlowPage() {
     }
 
     try {
+      const idToken = await user.getIdToken();
       const response = await fetch('/api/bookings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
         body: JSON.stringify(booking),
       });
 
@@ -174,16 +182,24 @@ export default function VenueFlowPage() {
   };
 
   const handleDeleteBooking = async (bookingId: string, venueName: string) => {
-    if (!user) {
-      toast({ title: "Not Authorized", description: "You must be logged in to delete bookings.", variant: "destructive" });
+     if (!user) {
+      toast({ title: "Not Logged In", description: "You must be logged in to delete bookings.", variant: "destructive" });
       return;
     }
-    console.log("Attempting delete as user:", user?.uid, "IsAdmin (client-side):", isAdmin);
+    if (!isAdmin) {
+      toast({ title: "Not Authorized", description: "Only administrators can delete bookings.", variant: "destructive" });
+      return;
+    }
+    console.log("Attempting delete as admin user:", user?.uid);
 
     try {
+      const idToken = await user.getIdToken();
       const response = await fetch('/api/bookings', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
         body: JSON.stringify({ bookingId, venueName }),
       });
 
@@ -229,8 +245,8 @@ export default function VenueFlowPage() {
     <div className="min-h-screen bg-background flex flex-col items-center p-4 md:p-8">
       <header className="w-full max-w-7xl mb-8 flex justify-between items-center">
         <div className="flex items-center space-x-2">
-          <CalendarDays size={20} className="text-accent" /> {/* Adjusted icon size */}
-          <h1 className="text-lg font-headline text-primary"> {/* Adjusted text size */}
+          <CalendarDays size={20} className="text-accent" />
+          <h1 className="text-lg font-headline text-primary">
             Venue1SIR
           </h1>
         </div>
@@ -238,7 +254,7 @@ export default function VenueFlowPage() {
       </header>
 
       <main className="w-full max-w-7xl lg:grid lg:grid-cols-12 lg:gap-6 lg:items-stretch">
-        <div className="lg:col-span-4 hidden lg:flex lg:flex-col"> {/* Changed from lg:col-span-3 */}
+        <div className="lg:col-span-4 hidden lg:flex lg:flex-col">
           <VenueFilter
             venues={DEFAULT_VENUES}
             selectedVenues={selectedVenues}
@@ -247,7 +263,7 @@ export default function VenueFlowPage() {
           />
         </div>
 
-        <div className="lg:col-span-8"> {/* Changed from lg:col-span-9 */}
+        <div className="lg:col-span-8">
           {error && (
             <Card className="mb-4 border-destructive bg-destructive/10">
               <CardContent className="p-4">
@@ -259,8 +275,17 @@ export default function VenueFlowPage() {
             <Card className="mb-4 border-primary bg-primary/10">
               <CardContent className="p-6 text-center">
                 <UserCircle size={48} className="mx-auto text-primary mb-2" />
-                <p className="text-primary-foreground font-semibold">Please log in to create bookings and view full details.</p>
-                <p className="text-sm text-primary-foreground/80">Public bookings are currently visible.</p>
+                <p className="text-primary-foreground font-semibold">Please log in to view bookings.</p>
+                <p className="text-sm text-primary-foreground/80">If you are an admin, logging in will allow you to manage bookings.</p>
+              </CardContent>
+            </Card>
+          )}
+          {user && !isAdmin && !isLoading && (
+             <Card className="mb-4 border-accent bg-accent/10">
+              <CardContent className="p-6 text-center">
+                <UserCircle size={48} className="mx-auto text-accent mb-2" />
+                <p className="text-accent-foreground font-semibold">You are logged in as a standard user.</p>
+                <p className="text-sm text-accent-foreground/80">Booking creation and management are restricted to administrators.</p>
               </CardContent>
             </Card>
           )}
@@ -301,7 +326,7 @@ export default function VenueFlowPage() {
         </Sheet>
       </div>
 
-      {isBookingFormOpen && user && (
+      {isBookingFormOpen && isAdmin && (
         <BookingForm
           isOpen={isBookingFormOpen}
           onClose={() => setIsBookingFormOpen(false)}
