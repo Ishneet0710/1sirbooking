@@ -32,6 +32,18 @@ export interface CalendarEvent {
   textColor?: string;
   extendedProps: {
     venue: string;
+    originalBooking: Booking; // Ensure this is part of the type
     [key: string]: any;
   };
+}
+
+export interface BookingAttempt {
+  id: string; // Firestore document ID
+  userId: string;
+  userDisplayName?: string | null;
+  userEmail?: string | null;
+  requestedPeriodStart: string; // ISO string from FullCalendar's DateSelectArg
+  requestedPeriodEnd: string;   // ISO string from FullCalendar's DateSelectArg
+  timestamp: any; // Firestore ServerTimestamp placeholder or actual Timestamp
+  status: 'pending' | 'reviewed'; // Example statuses
 }
