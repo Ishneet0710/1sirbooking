@@ -385,7 +385,13 @@ export default function VenueFlowPage() {
   };
 
   const calendarEvents = transformBookingsForCalendar(bookingsData, selectedVenues);
-  const calendarKey = `${selectedVenues.join('-')}_${calendarEvents.length}_${allBookings.length}`;
+  
+  // Key for FullCalendar: only changes when venue selection changes.
+  // This prevents the calendar from resetting its view on booking data changes.
+  const calendarViewPersistenceKey = useMemo(() => {
+    return selectedVenues.join('-');
+  }, [selectedVenues]);
+
 
   const getSubmitButtonText = useCallback(() => {
     if (bookingFormMode === 'admin_edit') return 'Save Changes';
@@ -492,7 +498,7 @@ export default function VenueFlowPage() {
             events={calendarEvents}
             onDateClick={handleDateClick}
             onEventClick={handleEventClick}
-            calendarKey={calendarKey}
+            calendarKey={calendarViewPersistenceKey} // Use the new key here
           />
            {isAdmin && (
             <div className="lg:hidden mt-6"> {/* Mobile view for booking requests */}
@@ -594,3 +600,6 @@ export default function VenueFlowPage() {
     </div>
   );
 }
+
+
+    
