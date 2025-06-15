@@ -27,7 +27,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (currentUser) {
         console.log("AuthContext: Current user UID:", currentUser.uid); // For debugging
-        if (ADMIN_UIDS.length === 0 || (ADMIN_UIDS.length === 1 && ADMIN_UIDS[0] === "YOUR_ADMIN_FIREBASE_UID_HERE")) {
+        if (ADMIN_UIDS.length === 0 || (ADMIN_UIDS.length === 1 && ADMIN_UIDS[0] === "zchimXGgJvZlWUiTjABzSKf0R4Y2")) {
           console.warn("AuthContext: ADMIN_UIDS is empty or contains only the default placeholder. isAdmin will be false unless UIDs are correctly set.");
         }
         setIsAdmin(ADMIN_UIDS.includes(currentUser.uid));
