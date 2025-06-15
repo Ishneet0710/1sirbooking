@@ -27,4 +27,4 @@ if (!getApps().length) {
 const db = getFirestore(app);
 const auth = getAuth(app); // Initialize Firebase Auth and get a reference to the service
 
-export { db, app, auth }; // Export auth
+export { db, app, auth, firebaseConfig }; // Export firebaseConfig as well
