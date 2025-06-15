@@ -2,7 +2,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebase'; // Client SDK for Firestore
 import { admin } from '@/lib/firebase-admin'; // Admin SDK
-import { ADMIN_UID } from '@/config/admin'; // Admin UID
+import { ADMIN_UIDS } from '@/config/admin'; // Import ADMIN_UIDS (array)
 import { collection, getDocs, setDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
 import type { Booking } from '@/types';
 import { hasConflict as checkConflictUtil } from '@/lib/bookings-utils';
@@ -15,7 +15,7 @@ async function verifyAdmin(request: NextRequest): Promise<string | null> {
   const idToken = authorization.split('Bearer ')[1];
   try {
     const decodedToken = await admin.auth().verifyIdToken(idToken);
-    if (decodedToken.uid === ADMIN_UID) {
+    if (ADMIN_UIDS.includes(decodedToken.uid)) { // Check if UID is in the ADMIN_UIDS array
       return decodedToken.uid; // User is admin
     }
     return null; // User is not admin

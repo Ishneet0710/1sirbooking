@@ -1,4 +1,9 @@
 
-// !!! IMPORTANT: This is your Firebase UID. Keep this secure and ensure it's correct. !!!
-// You can find this in your Firebase project console under Authentication -> Users
-export const ADMIN_UID = "zchimXGgJvZlWUiTjABzSKf0R4Y2";
+// !!! IMPORTANT: These are your Firebase UIDs for admin users. Keep them secure and ensure they are correct. !!!
+// You can find these in your Firebase project console under Authentication -> Users
+// Add each admin UID as a string in this array.
+export const ADMIN_UIDS: string[] = ["zchimXGgJvZlWUiTjABzSKf0R4Y2"]; // Example: ["uid1", "uid2"]
+
+// For single admin placeholder during initial setup, you might see:
+// export const ADMIN_UIDS: string[] = ["YOUR_ADMIN_FIREBASE_UID_HERE"];
+// Make sure to replace it with actual UIDs.

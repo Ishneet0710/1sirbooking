@@ -5,12 +5,12 @@ import type React from 'react';
 import { createContext, useContext, useEffect, useState } from 'react';
 import { type User, onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase'; // Assuming auth is exported from your firebase setup
-import { ADMIN_UID } from '@/config/admin'; // Import ADMIN_UID from config
+import { ADMIN_UIDS } from '@/config/admin'; // Import ADMIN_UIDS from config
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  isAdmin: boolean; 
+  isAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,10 +27,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (currentUser) {
         console.log("AuthContext: Current user UID:", currentUser.uid); // For debugging
-        if (ADMIN_UID === "YOUR_ADMIN_FIREBASE_UID_HERE" || ADMIN_UID === "") { // Added a check for default/empty string
-          console.warn("AuthContext: ADMIN_UID is not set or is default. isAdmin will be false unless the UID matches exactly.");
+        if (ADMIN_UIDS.length === 0 || (ADMIN_UIDS.length === 1 && ADMIN_UIDS[0] === "YOUR_ADMIN_FIREBASE_UID_HERE")) {
+          console.warn("AuthContext: ADMIN_UIDS is empty or contains only the default placeholder. isAdmin will be false unless UIDs are correctly set.");
         }
-        setIsAdmin(currentUser.uid === ADMIN_UID);
+        setIsAdmin(ADMIN_UIDS.includes(currentUser.uid));
       } else {
         setIsAdmin(false);
       }
