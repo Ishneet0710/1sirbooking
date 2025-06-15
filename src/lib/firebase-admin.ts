@@ -1,22 +1,19 @@
 
 import admin from 'firebase-admin';
-
-// Your Firebase project's service account credentials should be set as an environment variable
-// (GOOGLE_APPLICATION_CREDENTIALS) or Firebase Admin SDK will automatically discover them
-// when running in a Firebase environment (e.g. Cloud Functions, App Hosting).
-// If running locally outside of these environments, you might need to set this variable.
-// Example:
-// if (!process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-//  const serviceAccount = require("./path/to/your/serviceAccountKey.json");
-//  admin.initializeApp({
-//    credential: admin.credential.cert(serviceAccount)
-//  });
-// } else {
-//   admin.initializeApp();
-// }
+import { firebaseConfig } from './firebase'; // Import firebaseConfig
 
 if (!admin.apps.length) {
-  admin.initializeApp();
+  // Try to initialize with explicitly provided projectId if available,
+  // especially for environments where auto-discovery might fail (like local dev for Admin SDK).
+  // The Admin SDK will still try to find credentials via GOOGLE_APPLICATION_CREDENTIALS or ADC.
+  admin.initializeApp({
+    // The credential can often be inferred from the environment (e.g., GOOGLE_APPLICATION_CREDENTIALS).
+    // If you are running in an environment without GOOGLE_APPLICATION_CREDENTIALS set,
+    // and not on GCP, this will fail unless you explicitly provide a service account.
+    // The current error is about *project ID*, so providing it explicitly helps.
+    // For authentication (like verifyIdToken), projectId is crucial.
+    projectId: firebaseConfig.projectId,
+  });
 }
 
 export { admin };
