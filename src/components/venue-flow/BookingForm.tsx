@@ -9,11 +9,13 @@ import * as z from 'zod';
 import type { Booking, Venue } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+// Label component is not directly used, FormLabel is used from Form context
+// import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Textarea } from '@/components/ui/textarea';
+// Textarea is not currently used in this form
+// import { Textarea } from '@/components/ui/textarea';
 import { getCurrentSingaporeDate, formatDateForInput, formatTimeForInput, combineDateTimeToSingaporeDate, formatToSingaporeISOString, parseToSingaporeDate } from '@/lib/datetime';
 import { generateBookingId } from '@/lib/bookings-utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -35,7 +37,7 @@ const bookingFormSchema = z.object({
   return endDateTime > startDateTime;
 }, {
   message: "End date and time must be after start date and time",
-  path: ["endDate"], // You can also set path to ["endTime"] or a general path
+  path: ["endDate"], 
 });
 
 type BookingFormValues = z.infer<typeof bookingFormSchema>;
@@ -43,16 +45,30 @@ type BookingFormValues = z.infer<typeof bookingFormSchema>;
 interface BookingFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmitBooking: (booking: Booking) => Promise<boolean>; // Returns true if successful, false otherwise
+  onSubmitBooking: (booking: Booking) => Promise<boolean>; 
   venues: Venue[];
-  initialData?: Partial<Booking & { startDate?: Date, endDate?: Date }>; // For pre-filling
+  initialData?: Partial<Booking & { startDate?: Date, endDate?: Date }>; 
   existingBookingsForVenue?: Booking[];
+  submitButtonText: string; // New prop for dynamic button text
 }
 
-const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSubmitBooking, venues, initialData }) => {
+const BookingForm: React.FC<BookingFormProps> = ({ 
+  isOpen, 
+  onClose, 
+  onSubmitBooking, 
+  venues, 
+  initialData, 
+  submitButtonText 
+}) => {
   
   const defaultStartDate = initialData?.startDate || getCurrentSingaporeDate();
-  const defaultEndDate = initialData?.endDate || new Date(defaultStartDate.getTime() + 60 * 60 * 1000); // 1 hour later
+  let defaultEndDate = initialData?.endDate || new Date(defaultStartDate.getTime() + 60 * 60 * 1000); // 1 hour later
+
+  // Ensure defaultEndDate is after defaultStartDate
+  if (defaultEndDate <= defaultStartDate) {
+    defaultEndDate = new Date(defaultStartDate.getTime() + 60 * 60 * 1000);
+  }
+
 
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
@@ -67,28 +83,24 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSubmitBook
   });
 
   useEffect(() => {
-    if (initialData) {
-      const startDateObj = initialData.start ? parseToSingaporeDate(initialData.start) : defaultStartDate;
-      const endDateObj = initialData.end ? parseToSingaporeDate(initialData.end) : defaultEndDate;
-      form.reset({
-        title: initialData.title || '',
-        venue: initialData.venue || (venues.length > 0 ? venues[0].name : ''),
-        startDate: formatDateForInput(startDateObj),
-        startTime: formatTimeForInput(startDateObj),
-        endDate: formatDateForInput(endDateObj),
-        endTime: formatTimeForInput(endDateObj),
-      });
-    } else {
-       form.reset({
-        title: '',
-        venue: (venues.length > 0 ? venues[0].name : ''),
-        startDate: formatDateForInput(defaultStartDate),
-        startTime: formatTimeForInput(defaultStartDate),
-        endDate: formatDateForInput(defaultEndDate),
-        endTime: formatTimeForInput(defaultEndDate),
-      });
+    // Determine start and end dates for resetting the form
+    const effectiveInitialStartDate = initialData?.startDate || getCurrentSingaporeDate();
+    let effectiveInitialEndDate = initialData?.endDate;
+    
+    // If endDate is not provided or is before startDate, set it to 1 hour after startDate
+    if (!effectiveInitialEndDate || effectiveInitialEndDate <= effectiveInitialStartDate) {
+      effectiveInitialEndDate = new Date(effectiveInitialStartDate.getTime() + 60 * 60 * 1000);
     }
-  }, [initialData, form, venues, defaultStartDate, defaultEndDate]);
+
+    form.reset({
+      title: initialData?.title || '',
+      venue: initialData?.venue || (venues.length > 0 ? venues[0].name : ''),
+      startDate: formatDateForInput(initialData?.start ? parseToSingaporeDate(initialData.start) : effectiveInitialStartDate),
+      startTime: formatTimeForInput(initialData?.start ? parseToSingaporeDate(initialData.start) : effectiveInitialStartDate),
+      endDate: formatDateForInput(initialData?.end ? parseToSingaporeDate(initialData.end) : effectiveInitialEndDate),
+      endTime: formatTimeForInput(initialData?.end ? parseToSingaporeDate(initialData.end) : effectiveInitialEndDate),
+    });
+  }, [initialData, form, venues]);
 
 
   const handleSubmit = async (values: BookingFormValues) => {
@@ -96,7 +108,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSubmitBook
     const endDateTime = combineDateTimeToSingaporeDate(values.endDate, values.endTime);
 
     const booking: Booking = {
-      id: initialData?.id || generateBookingId(),
+      id: initialData?.id || generateBookingId(), // Use existing ID if editing, else generate new
       title: values.title,
       venue: values.venue,
       start: formatToSingaporeISOString(startDateTime),
@@ -105,7 +117,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSubmitBook
     
     const success = await onSubmitBooking(booking);
     if (success) {
-      form.reset();
+      form.reset(); // Reset form on successful submission
       onClose();
     }
   };
@@ -113,10 +125,12 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSubmitBook
   if (!isOpen) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="sm:max-w-md bg-card shadow-xl rounded-lg">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-headline">{initialData?.id ? 'Edit Booking' : 'Create New Booking'}</DialogTitle>
+          <DialogTitle className="text-2xl font-headline">
+            {initialData?.id ? 'Edit Booking' : (submitButtonText === 'Submit Request' ? 'Request Booking Slot' : 'Create New Booking')}
+          </DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6 p-1">
@@ -125,9 +139,9 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSubmitBook
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Title</FormLabel>
+                  <FormLabel>Title / Purpose</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Team Meeting" {...field} />
+                    <Input placeholder="e.g., Team Meeting, Training Session" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -139,7 +153,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSubmitBook
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Venue</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a venue" />
@@ -174,7 +188,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSubmitBook
                             )}
                           >
                             {field.value ? (
-                              format(parseToSingaporeDate(field.value + "T00:00:00"), "PPP")
+                              format(parseToSingaporeDate(field.value + "T00:00:00"), "PPP") // Parse as date part only for display
                             ) : (
                               <span>Pick a date</span>
                             )}
@@ -228,7 +242,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSubmitBook
                             )}
                           >
                             {field.value ? (
-                               format(parseToSingaporeDate(field.value + "T00:00:00"), "PPP")
+                               format(parseToSingaporeDate(field.value + "T00:00:00"), "PPP") // Parse as date part only for display
                             ) : (
                               <span>Pick a date</span>
                             )}
@@ -268,7 +282,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ isOpen, onClose, onSubmitBook
                 <Button type="button" variant="outline">Cancel</Button>
               </DialogClose>
               <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? 'Saving...' : (initialData?.id ? 'Save Changes' : 'Create Booking')}
+                {form.formState.isSubmitting ? 'Processing...' : submitButtonText}
               </Button>
             </DialogFooter>
           </form>

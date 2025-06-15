@@ -1,4 +1,6 @@
 
+import type { Timestamp } from 'firebase/firestore';
+
 export interface Venue {
   name: string;
   color: string;
@@ -42,8 +44,14 @@ export interface BookingAttempt {
   userId: string;
   userDisplayName?: string | null;
   userEmail?: string | null;
-  requestedPeriodStart: string; // ISO string from FullCalendar's DateSelectArg
-  requestedPeriodEnd: string;   // ISO string from FullCalendar's DateSelectArg
-  timestamp: any; // Firestore ServerTimestamp placeholder or actual Timestamp
-  status: 'pending' | 'reviewed'; // Example statuses
+  
+  // Details from the form for the request
+  requestedTitle: string;
+  requestedVenue: string;
+  requestedStart: string; // ISO string for start datetime
+  requestedEnd: string;   // ISO string for end datetime
+  
+  timestamp: Timestamp; // Firestore ServerTimestamp placeholder or actual Timestamp
+  status: 'pending_approval' | 'approved' | 'rejected' | 'booking_created'; // More specific statuses
+  createdBookingId?: string; // ID of the actual booking if approved and created
 }
