@@ -100,7 +100,7 @@ export default function VenueFlowPage() {
   };
 
   const handleDateClick = (arg: DateSelectArg) => {
-    if (!isAdmin) { // Check for admin status
+    if (!isAdmin) {
       toast({ title: "Admin Action Required", description: "Only administrators can create bookings.", variant: "default" });
       return;
     }
@@ -110,8 +110,8 @@ export default function VenueFlowPage() {
     if (arg.allDay && arg.view.type === 'dayGridMonth') {
        endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
     }
-
-    setBookingFormInitialData({ startDate, endDate });
+    // Clear any existing ID from previous edits
+    setBookingFormInitialData({ startDate, endDate, id: undefined, title: undefined, venue: undefined });
     setIsBookingFormOpen(true);
   };
 
@@ -121,6 +121,19 @@ export default function VenueFlowPage() {
       setSelectedBookingInfo(booking);
       setIsBookingInfoOpen(true);
     }
+  };
+
+  const handleStartEditBooking = (bookingToEdit: Booking) => {
+    if (!isAdmin) {
+      toast({ title: "Admin Action Required", description: "Only administrators can edit bookings.", variant: "default" });
+      return;
+    }
+    // The BookingForm component expects `start` and `end` as ISO strings if they exist in initialData,
+    // and it will parse them. For new bookings via date click, we set startDate/endDate as Date objects.
+    // Here, we directly pass the booking object.
+    setBookingFormInitialData(bookingToEdit);
+    setIsBookingFormOpen(true);
+    setIsBookingInfoOpen(false); // Close the info dialog
   };
 
   const handleSubmitBooking = async (booking: Booking): Promise<boolean> => {
@@ -134,11 +147,13 @@ export default function VenueFlowPage() {
     }
     console.log("Attempting save as admin user:", user?.uid);
 
+    // Conflict check needs to exclude the booking being edited
     if (bookingsData && bookingsData[booking.venue]) {
-      if (checkHasConflict(booking, bookingsData[booking.venue])) {
+      const otherBookingsInVenue = bookingsData[booking.venue].filter(b => b.id !== booking.id);
+      if (checkHasConflict(booking, otherBookingsInVenue)) {
          toast({
           title: 'Booking Conflict',
-          description: 'This time slot is already booked for the selected venue.',
+          description: 'This time slot is already booked for the selected venue, or overlaps with another booking.',
           variant: 'destructive',
         });
         return false;
@@ -170,6 +185,10 @@ export default function VenueFlowPage() {
         title: 'Booking Saved!',
         description: `${booking.title} for ${booking.venue} has been successfully ${bookingFormInitialData.id ? 'updated' : 'created'}.`,
       });
+      // Reset bookingFormInitialData if it was an edit, so next new booking doesn't carry over the ID
+      if (bookingFormInitialData.id) {
+        setBookingFormInitialData({});
+      }
       return true;
     } catch (err: any) {
       toast({
@@ -329,7 +348,11 @@ export default function VenueFlowPage() {
       {isBookingFormOpen && isAdmin && (
         <BookingForm
           isOpen={isBookingFormOpen}
-          onClose={() => setIsBookingFormOpen(false)}
+          onClose={() => {
+            setIsBookingFormOpen(false);
+            // Clear initial data when form is closed, especially after an edit
+            setBookingFormInitialData({}); 
+          }}
           onSubmitBooking={handleSubmitBooking}
           venues={DEFAULT_VENUES}
           initialData={bookingFormInitialData}
@@ -345,6 +368,7 @@ export default function VenueFlowPage() {
           onClose={() => setIsBookingInfoOpen(false)}
           booking={selectedBookingInfo}
           onDeleteBooking={handleDeleteBooking}
+          onEditBooking={handleStartEditBooking} // Pass the new handler
         />
       )}
     </div>

@@ -7,19 +7,20 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { formatToSingaporeTime } from '@/lib/datetime';
 import { Badge } from '@/components/ui/badge';
-import { CalendarDays, Clock, MapPin, Trash2 } from 'lucide-react';
+import { CalendarDays, Clock, Edit3, MapPin, Trash2 } from 'lucide-react';
 import { getVenueColor } from '@/config/venues';
-import { useAuth } from '@/context/AuthContext'; // Import useAuth
+import { useAuth } from '@/context/AuthContext';
 
 interface BookingInfoDialogProps {
   isOpen: boolean;
   onClose: () => void;
   booking: Booking | null;
   onDeleteBooking: (bookingId: string, venueName: string) => Promise<void>;
+  onEditBooking: (booking: Booking) => void; // New prop for edit handler
 }
 
-const BookingInfoDialog: React.FC<BookingInfoDialogProps> = ({ isOpen, onClose, booking, onDeleteBooking }) => {
-  const { isAdmin } = useAuth(); // Get isAdmin status
+const BookingInfoDialog: React.FC<BookingInfoDialogProps> = ({ isOpen, onClose, booking, onDeleteBooking, onEditBooking }) => {
+  const { isAdmin } = useAuth();
 
   if (!isOpen || !booking) return null;
 
@@ -28,6 +29,13 @@ const BookingInfoDialog: React.FC<BookingInfoDialogProps> = ({ isOpen, onClose, 
   const handleDelete = async () => {
     await onDeleteBooking(booking.id, booking.venue);
     onClose();
+  };
+
+  const handleEdit = () => {
+    if (booking) {
+      onEditBooking(booking);
+      // onClose(); // BookingForm will open, this dialog should close via onEditBooking handler in parent
+    }
   };
 
   return (
@@ -56,15 +64,21 @@ const BookingInfoDialog: React.FC<BookingInfoDialogProps> = ({ isOpen, onClose, 
             </p>
           </div>
         </div>
-        <DialogFooter className="pt-6 sm:justify-between">
-          {isAdmin && ( // Only show delete button if user is admin (client-side check for UX)
-            <Button variant="destructive" onClick={handleDelete} className="flex items-center gap-2">
-              <Trash2 size={16} /> Delete Booking
-            </Button>
-          )}
-          {!isAdmin && <div />} {/* Placeholder to keep layout consistent if delete button is hidden */}
+        <DialogFooter className="pt-6 sm:justify-between flex-wrap gap-2">
+          <div className="flex gap-2 justify-start">
+            {isAdmin && (
+              <>
+                <Button variant="outline" onClick={handleEdit} className="flex items-center gap-2">
+                  <Edit3 size={16} /> Edit
+                </Button>
+                <Button variant="destructive" onClick={handleDelete} className="flex items-center gap-2">
+                  <Trash2 size={16} /> Delete
+                </Button>
+              </>
+            )}
+          </div>
           <DialogClose asChild>
-            <Button type="button" variant="outline">Close</Button>
+            <Button type="button" variant="outline" className="sm:ml-auto">Close</Button>
           </DialogClose>
         </DialogFooter>
       </DialogContent>
