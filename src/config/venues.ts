@@ -11,7 +11,8 @@ export const DEFAULT_VENUES: Venue[] = [
   { name: "LT C", color: "#C0CA33" },               // Lime
   { name: "LT HQ", color: "#6D4C41" },               // Brown
   { name: "Battalion Conference Room", color: "#43A047" }, // Green
-  { name: "Battlestation", color: "#607D8B" }       // Blue Grey
+  { name: "Battlestation", color: "#607D8B" },      // Blue Grey
+  { name: "Bn HQ Mess", color: "#FFEB3B" }          // Yellow
 ];
 
 // Helper to get color by venue name
