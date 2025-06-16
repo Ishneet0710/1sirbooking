@@ -1,8 +1,7 @@
-
 import type { Venue } from '@/types';
 
 export const DEFAULT_VENUES: Venue[] = [
-  { name: "Training Shed A", color: "#D81B60" },    // Pink
+  { name: "Training Shed A", color: "#F8BBD9" },    // Light Pink
   { name: "Training Shed B", color: "#1E88E5" },    // Blue
   { name: "Training Shed C", color: "#FFC107" },    // Amber
   { name: "Training Shed SP", color: "#004D40" },   // Teal Darken-4
@@ -10,7 +9,9 @@ export const DEFAULT_VENUES: Venue[] = [
   { name: "Heart Shaped Knoll", color: "#F4511E" }, // Deep Orange
   { name: "LT A", color: "#3949AB" },               // Indigo
   { name: "LT C", color: "#C0CA33" },               // Lime
-  { name: "LT HQ", color: "#6D4C41" }               // Brown
+  { name: "LT HQ", color: "#6D4C41" },               // Brown
+  { name: "Battalion Conference Room", color: "#43A047" }, // Green
+  { name: "Battlestation", color: "#607D8B" }       // Blue Grey
 ];
 
 // Helper to get color by venue name
