@@ -30,6 +30,16 @@ import { collection, onSnapshot, query, addDoc, serverTimestamp, orderBy, limit,
 import { parseISO } from 'date-fns';
 
 
+interface ProcessedBookingAttempt extends BookingAttempt {
+  conflictsWithExistingBooking: boolean;
+  conflictsWithOtherRequest: boolean;
+}
+
+interface GroupedBookingAttempts {
+  [dateKey: string]: ProcessedBookingAttempt[];
+}
+
+
 export default function VenueFlowPage() {
   const [allBookings, setAllBookings] = useState<Booking[]>([]);
   const [selectedVenues, setSelectedVenues] = useState<string[]>(DEFAULT_VENUES.map(v => v.name));
@@ -79,15 +89,15 @@ export default function VenueFlowPage() {
     if (isAdmin && user) {
       const attemptsQuery = query(
         collection(db, "bookingAttempts"),
-        orderBy("timestamp", "desc"),
-        limit(20) // Get the last 20 attempts
+        orderBy("timestamp", "desc")
+        // No limit here, as we'll filter and group client-side. If performance becomes an issue, consider pagination or date-range filtering.
       );
       const unsubscribeAttempts = onSnapshot(attemptsQuery, (querySnapshot) => {
         const attempts: BookingAttempt[] = [];
         querySnapshot.forEach((doc) => {
           attempts.push({ id: doc.id, ...doc.data() } as BookingAttempt);
         });
-        setBookingAttempts(attempts.filter(attempt => attempt.status === 'pending_approval'));
+        setBookingAttempts(attempts); // Store all attempts, filtering for pending status will happen in useMemo
       }, (err) => {
         console.error("Error fetching booking attempts:", err);
         toast({
@@ -98,7 +108,7 @@ export default function VenueFlowPage() {
       });
       return () => unsubscribeAttempts();
     } else {
-      setBookingAttempts([]); // Clear attempts if not admin or not logged in
+      setBookingAttempts([]); 
     }
   }, [isAdmin, user, toast]);
 
@@ -122,6 +132,59 @@ export default function VenueFlowPage() {
     return groupedBookings;
   }, [allBookings, isLoading]);
 
+  const pendingBookingAttempts = useMemo(() => {
+    return bookingAttempts.filter(attempt => attempt.status === 'pending_approval');
+  }, [bookingAttempts]);
+
+  const processedAndGroupedAttempts: GroupedBookingAttempts = useMemo(() => {
+    const processed: ProcessedBookingAttempt[] = pendingBookingAttempts.map(attempt => {
+      const attemptAsBookingConcept: Booking = {
+        id: attempt.id,
+        title: attempt.requestedTitle,
+        venue: attempt.requestedVenue,
+        start: attempt.requestedStart,
+        end: attempt.requestedEnd,
+      };
+
+      const conflictsWithExisting = checkHasConflict(attemptAsBookingConcept, allBookings);
+
+      const otherPendingSlotsForConflictCheck: Booking[] = pendingBookingAttempts
+        .filter(other => other.id !== attempt.id)
+        .map(other => ({
+          id: other.id,
+          title: other.requestedTitle,
+          venue: other.requestedVenue,
+          start: other.requestedStart,
+          end: other.requestedEnd,
+        }));
+      const conflictsWithOther = checkHasConflict(attemptAsBookingConcept, otherPendingSlotsForConflictCheck);
+
+      return {
+        ...attempt,
+        conflictsWithExistingBooking: conflictsWithExisting,
+        conflictsWithOtherRequest: conflictsWithOther,
+      };
+    });
+
+    const grouped: GroupedBookingAttempts = {};
+    processed.forEach(attempt => {
+      const dateKey = formatToSingaporeTime(parseISO(attempt.requestedStart), 'yyyy-MM-dd');
+      if (!grouped[dateKey]) {
+        grouped[dateKey] = [];
+      }
+      grouped[dateKey].push(attempt);
+    });
+
+    for (const dateKey in grouped) {
+      grouped[dateKey].sort((a, b) => parseISO(a.requestedStart).getTime() - parseISO(b.requestedStart).getTime());
+    }
+    return grouped;
+  }, [pendingBookingAttempts, allBookings]);
+
+  const sortedDateKeysForRequests = useMemo(() => {
+    return Object.keys(processedAndGroupedAttempts).sort((a,b) => parseISO(a).getTime() - parseISO(b).getTime());
+  }, [processedAndGroupedAttempts]);
+
 
   const handleFilterChange = (newSelectedVenues: string[]) => {
     setSelectedVenues(newSelectedVenues);
@@ -134,10 +197,10 @@ export default function VenueFlowPage() {
     }
 
     const startDate = parseToSingaporeDate(arg.startStr);
-    let endDate = arg.endStr ? parseToSingaporeDate(arg.endStr) : new Date(startDate.getTime() + 60 * 60 * 1000); // Default 1 hour
+    let endDate = arg.endStr ? parseToSingaporeDate(arg.endStr) : new Date(startDate.getTime() + 60 * 60 * 1000); 
 
     if (arg.allDay && arg.view.type === 'dayGridMonth') {
-       endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // Ensure end time for all-day click
+       endDate = new Date(startDate.getTime() + 60 * 60 * 1000); 
     }
     
     setBookingFormInitialData({ startDate, endDate, id: undefined, title: undefined, venue: isAdmin ? DEFAULT_VENUES[0]?.name : undefined });
@@ -159,7 +222,6 @@ export default function VenueFlowPage() {
       toast({ title: "Admin Action Required", description: "Only administrators can edit bookings.", variant: "default" });
       return;
     }
-     // Parse start/end strings to Date objects for the form
     const startDate = bookingToEdit.start ? parseToSingaporeDate(bookingToEdit.start) : getCurrentSingaporeDate();
     const endDate = bookingToEdit.end ? parseToSingaporeDate(bookingToEdit.end) : new Date(startDate.getTime() + 60 * 60 * 1000);
 
@@ -176,18 +238,17 @@ export default function VenueFlowPage() {
     }
 
     try {
-      const attemptData: Omit<BookingAttempt, 'id' | 'timestamp'> = { // Omit id and timestamp as Firestore will generate them
+      const attemptData: Omit<BookingAttempt, 'id' | 'timestamp'> = { 
         userId: user.uid,
         userDisplayName: user.displayName,
         userEmail: user.email,
         requestedTitle: bookingDataFromForm.title,
         requestedVenue: bookingDataFromForm.venue,
-        requestedStart: bookingDataFromForm.start, // Already ISO string from form submission logic
-        requestedEnd: bookingDataFromForm.end,     // Already ISO string
+        requestedStart: bookingDataFromForm.start, 
+        requestedEnd: bookingDataFromForm.end,     
         status: 'pending_approval',
       };
 
-      // Add serverTimestamp for the 'timestamp' field
       await addDoc(collection(db, 'bookingAttempts'), {
         ...attemptData,
         timestamp: serverTimestamp(),
@@ -217,15 +278,12 @@ export default function VenueFlowPage() {
       return false;
     }
     if (!isAdmin) {
-      // This function should ideally only be callable by admins directly or via approval.
-      // If somehow a non-admin calls this, use the request flow.
-      // However, the main page logic now directs non-admins to handleNonAdminBookingRequest.
       toast({ title: "Not Authorized", description: "Only administrators can save bookings directly.", variant: "destructive" });
       return false;
     }
 
     if (bookingsData && bookingsData[booking.venue]) {
-      const otherBookingsInVenue = bookingsData[booking.venue].filter(b => b.id !== booking.id);
+      const otherBookingsInVenue = allBookings.filter(b => b.id !== booking.id && b.venue === booking.venue);
       if (checkHasConflict(booking, otherBookingsInVenue)) {
          toast({
           title: 'Booking Conflict',
@@ -266,7 +324,7 @@ export default function VenueFlowPage() {
         title: 'Booking Saved!',
         description: `${booking.title} for ${booking.venue} has been successfully ${bookingFormInitialData.id ? 'updated' : 'created'}.`,
       });
-      if (bookingFormInitialData.id) { // if it was an edit
+      if (bookingFormInitialData.id) { 
         setBookingFormInitialData({});
       }
       return true;
@@ -284,14 +342,14 @@ export default function VenueFlowPage() {
     if (!isAdmin) return;
 
     const bookingToCreate: Booking = {
-      id: generateBookingId(), // Generate a new ID for the actual booking
+      id: generateBookingId(), 
       title: attempt.requestedTitle,
       venue: attempt.requestedVenue,
       start: attempt.requestedStart,
       end: attempt.requestedEnd,
     };
 
-    const success = await handleSubmitBooking(bookingToCreate); // This already calls the API and handles toasts
+    const success = await handleSubmitBooking(bookingToCreate); 
 
     if (success) {
       try {
@@ -304,7 +362,6 @@ export default function VenueFlowPage() {
           title: 'Request Approved',
           description: `Booking for "${attempt.requestedTitle}" has been created.`,
         });
-        // The onSnapshot listener for bookingAttempts will update the UI
       } catch (error: any) {
         console.error("Error updating booking attempt status:", error);
         toast({
@@ -313,9 +370,6 @@ export default function VenueFlowPage() {
           variant: 'destructive',
         });
       }
-    } else {
-      // handleSubmitBooking would have shown an error toast (e.g. conflict)
-      // No need to update attempt status if booking creation failed
     }
   };
   
@@ -386,8 +440,6 @@ export default function VenueFlowPage() {
 
   const calendarEvents = transformBookingsForCalendar(bookingsData, selectedVenues);
   
-  // Key for FullCalendar: only changes when venue selection changes.
-  // This prevents the calendar from resetting its view on booking data changes.
   const calendarViewPersistenceKey = useMemo(() => {
     return selectedVenues.join('-');
   }, [selectedVenues]);
@@ -410,6 +462,62 @@ export default function VenueFlowPage() {
     );
   }
 
+  const renderPendingRequests = () => {
+    if (pendingBookingAttempts.length === 0) {
+      return <p className="text-sm text-muted-foreground">No pending booking requests.</p>;
+    }
+    return (
+      <ul className="space-y-6">
+        {sortedDateKeysForRequests.map(dateKey => (
+          <li key={dateKey}>
+            <h3 className="text-md font-semibold text-primary mb-2 sticky top-0 bg-card/80 backdrop-blur-sm py-1.5 z-10">
+              {formatToSingaporeTime(parseISO(dateKey), 'EEEE, MMMM d, yyyy')}
+            </h3>
+            <ul className="space-y-4 pl-2 border-l border-border ml-1">
+              {processedAndGroupedAttempts[dateKey].map((attempt) => (
+                <li key={attempt.id} className="p-3 bg-muted/50 rounded-lg shadow-sm">
+                  <p className="font-semibold text-foreground text-base mb-1">
+                    {attempt.requestedTitle}
+                  </p>
+                  <div className="text-sm space-y-1 text-muted-foreground">
+                    <p><strong>User:</strong> {attempt.userDisplayName || attempt.userEmail || 'Unknown'}</p>
+                    <p><strong>Venue:</strong> {attempt.requestedVenue}</p>
+                    <p><strong>From:</strong> {formatToSingaporeTime(parseISO(attempt.requestedStart), 'HH:mm')}</p>
+                    <p><strong>To:</strong> {formatToSingaporeTime(parseISO(attempt.requestedEnd), 'HH:mm')}</p>
+                    <p className="text-xs mt-0.5">Requested: {attempt.timestamp?.toDate ? formatToSingaporeTime(attempt.timestamp.toDate(), 'PP p') : 'Processing...'}</p>
+                  </div>
+                  { (attempt.conflictsWithExistingBooking || attempt.conflictsWithOtherRequest) && <div className="mt-2 space-y-1">
+                    {attempt.conflictsWithExistingBooking && (
+                      <div className="flex items-center text-destructive text-xs">
+                        <AlertTriangle size={14} className="mr-1 flex-shrink-0" />
+                        Conflicts with a confirmed booking.
+                      </div>
+                    )}
+                    {attempt.conflictsWithOtherRequest && (
+                      <div className="flex items-center text-yellow-600 dark:text-yellow-500 text-xs">
+                        <AlertTriangle size={14} className="mr-1 flex-shrink-0" />
+                        Conflicts with another pending request.
+                      </div>
+                    )}
+                  </div>}
+                  <div className="mt-3 flex gap-2">
+                    <Button size="sm" onClick={() => handleApproveBookingRequest(attempt)} className="bg-green-600 hover:bg-green-700 text-white">
+                      <CheckCircle size={16} className="mr-1.5"/> Approve
+                    </Button>
+                    <Button size="sm" variant="destructive" onClick={() => handleRejectBookingRequest(attempt.id)}>
+                        <AlertTriangle size={16} className="mr-1.5"/> Reject
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ul>
+    );
+  };
+
+
   return (
     <div className="min-h-screen bg-background flex flex-col items-center p-4 md:p-8">
       <header className="w-full max-w-7xl mb-8 flex justify-between items-center">
@@ -422,7 +530,7 @@ export default function VenueFlowPage() {
         <LoginLogoutButton />
       </header>
 
-      <main className="w-full max-w-7xl lg:grid lg:grid-cols-12 lg:gap-6 lg:items-stretch">
+      <main className="w-full max-w-7xl lg:grid lg:grid-cols-12 lg:gap-6 lg:items-start">
         <div className="lg:col-span-4 hidden lg:flex lg:flex-col space-y-6">
           <VenueFilter
             venues={DEFAULT_VENUES}
@@ -435,35 +543,10 @@ export default function VenueFlowPage() {
                 <CardTitle className="text-xl font-headline text-primary flex items-center">
                   <Hourglass size={20} className="mr-2 text-primary/80"/> Pending Booking Requests
                 </CardTitle>
-                <CardDescription>Review and approve or reject user booking requests.</CardDescription>
+                <CardDescription>Review and manage user booking requests. Conflicts are highlighted.</CardDescription>
               </CardHeader>
-              <CardContent className="pt-2 max-h-[calc(100vh-400px)] overflow-y-auto"> {/* Adjusted max-h */}
-                {bookingAttempts.length > 0 ? (
-                  <ul className="space-y-4">
-                    {bookingAttempts.map((attempt) => (
-                      <li key={attempt.id} className="p-3 bg-muted/50 rounded-lg shadow-sm">
-                        <p className="font-semibold text-foreground text-base mb-1">
-                          {attempt.requestedTitle}
-                        </p>
-                        <div className="text-sm space-y-1 text-muted-foreground">
-                           <p><strong>User:</strong> {attempt.userDisplayName || attempt.userEmail || 'Unknown'}</p>
-                           <p><strong>Venue:</strong> {attempt.requestedVenue}</p>
-                           <p><strong>From:</strong> {formatToSingaporeTime(parseISO(attempt.requestedStart), 'MMM d, yy, HH:mm')}</p>
-                           <p><strong>To:</strong> {formatToSingaporeTime(parseISO(attempt.requestedEnd), 'MMM d, yy, HH:mm')}</p>
-                           <p className="text-xs mt-0.5">Requested: {attempt.timestamp?.toDate ? formatToSingaporeTime(attempt.timestamp.toDate(), 'PP p') : 'Processing...'}</p>
-                        </div>
-                        <div className="mt-3 flex gap-2">
-                          <Button size="sm" onClick={() => handleApproveBookingRequest(attempt)} className="bg-green-600 hover:bg-green-700 text-white">
-                            <CheckCircle size={16} className="mr-1.5"/> Approve
-                          </Button>
-                          <Button size="sm" variant="destructive" onClick={() => handleRejectBookingRequest(attempt.id)}>
-                             <AlertTriangle size={16} className="mr-1.5"/> Reject
-                          </Button>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : <p className="text-sm text-muted-foreground">No pending booking requests.</p>}
+              <CardContent className="pt-2 max-h-[calc(100vh-400px)] overflow-y-auto"> 
+                 {renderPendingRequests()}
               </CardContent>
             </Card>
           )}
@@ -498,44 +581,19 @@ export default function VenueFlowPage() {
             events={calendarEvents}
             onDateClick={handleDateClick}
             onEventClick={handleEventClick}
-            calendarKey={calendarViewPersistenceKey} // Use the new key here
+            calendarKey={calendarViewPersistenceKey} 
           />
            {isAdmin && (
-            <div className="lg:hidden mt-6"> {/* Mobile view for booking requests */}
+            <div className="lg:hidden mt-6"> 
               <Card className="shadow-lg">
                 <CardHeader>
                  <CardTitle className="text-xl font-headline text-primary flex items-center">
                     <Hourglass size={20} className="mr-2 text-primary/80"/> Pending Booking Requests
                   </CardTitle>
-                  <CardDescription>Review and approve or reject user booking requests.</CardDescription>
+                  <CardDescription>Review and manage user booking requests. Conflicts are highlighted.</CardDescription>
                 </CardHeader>
                  <CardContent className="pt-2 max-h-96 overflow-y-auto">
-                  {bookingAttempts.length > 0 ? (
-                    <ul className="space-y-4">
-                      {bookingAttempts.map((attempt) => (
-                        <li key={attempt.id} className="p-3 bg-muted/50 rounded-lg shadow-sm">
-                          <p className="font-semibold text-foreground text-base mb-1">
-                            {attempt.requestedTitle}
-                          </p>
-                          <div className="text-sm space-y-1 text-muted-foreground">
-                            <p><strong>User:</strong> {attempt.userDisplayName || attempt.userEmail || 'Unknown'}</p>
-                            <p><strong>Venue:</strong> {attempt.requestedVenue}</p>
-                            <p><strong>From:</strong> {formatToSingaporeTime(parseISO(attempt.requestedStart), 'MMM d, yy, HH:mm')}</p>
-                            <p><strong>To:</strong> {formatToSingaporeTime(parseISO(attempt.requestedEnd), 'MMM d, yy, HH:mm')}</p>
-                            <p className="text-xs mt-0.5">Requested: {attempt.timestamp?.toDate ? formatToSingaporeTime(attempt.timestamp.toDate(), 'PP p') : 'Processing...'}</p>
-                          </div>
-                          <div className="mt-3 flex gap-2">
-                            <Button size="sm" onClick={() => handleApproveBookingRequest(attempt)} className="bg-green-600 hover:bg-green-700 text-white">
-                              <CheckCircle size={16} className="mr-1.5"/> Approve
-                            </Button>
-                             <Button size="sm" variant="destructive" onClick={() => handleRejectBookingRequest(attempt.id)}>
-                               <AlertTriangle size={16} className="mr-1.5"/> Reject
-                            </Button>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : <p className="text-sm text-muted-foreground">No pending booking requests.</p>}
+                   {renderPendingRequests()}
                 </CardContent>
               </Card>
             </div>
@@ -582,7 +640,7 @@ export default function VenueFlowPage() {
           venues={DEFAULT_VENUES}
           initialData={bookingFormInitialData}
           existingBookingsForVenue={
-            bookingFormInitialData?.venue && bookingsData ? bookingsData[bookingFormInitialData.venue] : []
+             bookingFormInitialData?.venue && bookingsData && allBookings ? allBookings.filter(b => b.venue === bookingFormInitialData?.venue) : []
           }
           submitButtonText={getSubmitButtonText()}
         />
@@ -600,6 +658,4 @@ export default function VenueFlowPage() {
     </div>
   );
 }
-
-
     
