@@ -1,16 +1,22 @@
 
 'use server';
 /**
- * @fileOverview A Genkit flow for sending email notifications.
- * This flow currently simulates email sending by logging to the console.
+ * @fileOverview A Genkit flow for sending email notifications using Resend.
  *
- * - sendEmail - A function that "sends" an email.
+ * - sendEmail - A function that sends an email.
  * - EmailInput - The input type for the sendEmail function.
  * - EmailOutput - The return type for the sendEmail function.
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit'; // Corrected import path for Zod
+import { z } from 'genkit';
+import { Resend } from 'resend';
+
+// Initialize Resend with your API key.
+// IMPORTANT: Store your API key in an environment variable (e.g., RESEND_API_KEY)
+// and ensure it's configured for your deployment environment (e.g., Firebase secrets).
+// DO NOT hardcode the API key here.
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const EmailInputSchema = z.object({
   to: z.string().email().describe('The recipient email address.'),
@@ -20,8 +26,9 @@ const EmailInputSchema = z.object({
 export type EmailInput = z.infer<typeof EmailInputSchema>;
 
 const EmailOutputSchema = z.object({
-  success: z.boolean().describe('Whether the email was "sent" successfully.'),
+  success: z.boolean().describe('Whether the email was sent successfully.'),
   message: z.string().describe('A message indicating the outcome.'),
+  messageId: z.string().optional().describe('The message ID from the email provider if successful.'),
 });
 export type EmailOutput = z.infer<typeof EmailOutputSchema>;
 
@@ -37,29 +44,51 @@ const sendEmailFlow = ai.defineFlow(
     outputSchema: EmailOutputSchema,
   },
   async (input: EmailInput): Promise<EmailOutput> => {
-    console.log('Attempting to send email:');
-    console.log(`To: ${input.to}`);
-    console.log(`Subject: ${input.subject}`);
-    console.log(`HTML Body: ${input.htmlBody}`);
-
-    // In a real application, you would integrate with an email service here
-    // For example, using Nodemailer, SendGrid, AWS SES, etc.
-    // const emailSentSuccessfully = await actualEmailService.send(input);
-
-    // For now, we simulate success
-    const emailSentSuccessfully = true; 
-
-    if (emailSentSuccessfully) {
-      console.log('Email successfully "sent" (logged to console).');
-      return {
-        success: true,
-        message: 'Email logged to console.',
-      };
-    } else {
-      console.error('Failed to "send" email.');
+    if (!process.env.RESEND_API_KEY) {
+      console.error('Resend API key is not configured. Email sending is disabled.');
+      // Fallback to console logging if API key is missing
+      console.log('SIMULATING Email Send (Resend API Key Missing):');
+      console.log(`To: ${input.to}`);
+      console.log(`Subject: ${input.subject}`);
+      console.log(`HTML Body: ${input.htmlBody}`);
       return {
         success: false,
-        message: 'Failed to send email (simulated).',
+        message: 'Resend API key not configured. Email not sent. Logged to console.',
+      };
+    }
+
+    try {
+      // IMPORTANT: Update the 'from' address.
+      // For testing without a verified domain, you can use 'Your App <onboarding@resend.dev>'.
+      // For production, use an email address from a domain you have verified with Resend.
+      const fromAddress = 'Venue1SIR <noreply@yourdomain.com>'; // REPLACE with your verified sending email or onboarding@resend.dev
+
+      const { data, error } = await resend.emails.send({
+        from: fromAddress,
+        to: [input.to],
+        subject: input.subject,
+        html: input.htmlBody,
+      });
+
+      if (error) {
+        console.error('Failed to send email via Resend:', error);
+        return {
+          success: false,
+          message: `Failed to send email: ${error.message || 'Unknown Resend error'}`,
+        };
+      }
+
+      console.log('Email successfully sent via Resend. Message ID:', data?.id);
+      return {
+        success: true,
+        message: 'Email sent successfully via Resend.',
+        messageId: data?.id,
+      };
+    } catch (err: any) {
+      console.error('Error in sendEmailFlow with Resend:', err);
+      return {
+        success: false,
+        message: `Error sending email: ${err.message || 'An unexpected error occurred'}`,
       };
     }
   }
