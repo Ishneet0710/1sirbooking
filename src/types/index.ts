@@ -52,6 +52,8 @@ export interface BookingAttempt {
   requestedEnd: string;   // ISO string for end datetime
   
   timestamp: Timestamp; // Firestore ServerTimestamp placeholder or actual Timestamp
-  status: 'pending_approval' | 'approved' | 'rejected' | 'booking_created'; // More specific statuses
+  status: 'pending_approval' | 'approved' | 'rejected'; // Refined statuses
   createdBookingId?: string; // ID of the actual booking if approved and created
+  rejectionReason?: string; // Reason for rejection, optional
 }
+

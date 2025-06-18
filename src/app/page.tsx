@@ -8,11 +8,13 @@ import VenueFilter from '@/components/venue-flow/VenueFilter';
 import BookingForm from '@/components/venue-flow/BookingForm';
 import BookingInfoDialog from '@/components/venue-flow/BookingInfoDialog';
 import VenueCalendarWrapper from '@/components/venue-flow/VenueCalendarWrapper';
+import RejectionReasonDialog from '@/components/venue-flow/RejectionReasonDialog'; // Import new dialog
+import { sendEmail } from '@/ai/flows/send-email-flow'; // Import the email flow
 import { transformBookingsForCalendar, hasConflict as checkHasConflict, generateBookingId } from '@/lib/bookings-utils';
 import { useToast } from '@/hooks/use-toast';
 import type { DateSelectArg, EventClickArg } from '@fullcalendar/core';
 import { parseToSingaporeDate, formatToSingaporeTime, formatToSingaporeISOString, getCurrentSingaporeDate } from '@/lib/datetime';
-import { CalendarDays, Filter, UserCircle, Info, Clock, CheckCircle, AlertTriangle, Hourglass } from 'lucide-react';
+import { CalendarDays, Filter, UserCircle, Info, Clock, CheckCircle, AlertTriangle, Hourglass, XCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,7 +28,7 @@ import {
 import LoginLogoutButton from '@/components/auth/LoginLogoutButton';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, query, addDoc, serverTimestamp, orderBy, limit, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { parseISO } from 'date-fns';
 
 
@@ -59,6 +61,11 @@ export default function VenueFlowPage() {
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
   const [bookingAttempts, setBookingAttempts] = useState<BookingAttempt[]>([]);
 
+  // State for rejection reason dialog
+  const [isRejectionDialogOpen, setIsRejectionDialogOpen] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState(''); // Though managed inside dialog, can be here for parent control
+  const [currentAttemptToReject, setCurrentAttemptToReject] = useState<BookingAttempt | null>(null);
+
 
   useEffect(() => {
     setIsLoading(true);
@@ -88,16 +95,15 @@ export default function VenueFlowPage() {
   useEffect(() => {
     if (isAdmin && user) {
       const attemptsQuery = query(
-        collection(db, "bookingAttempts"),
-        orderBy("timestamp", "desc")
-        // No limit here, as we'll filter and group client-side. If performance becomes an issue, consider pagination or date-range filtering.
+        collection(db, "bookingAttempts")
+        // orderBy("timestamp", "desc") // Sorting happens in useMemo now
       );
       const unsubscribeAttempts = onSnapshot(attemptsQuery, (querySnapshot) => {
         const attempts: BookingAttempt[] = [];
         querySnapshot.forEach((doc) => {
           attempts.push({ id: doc.id, ...doc.data() } as BookingAttempt);
         });
-        setBookingAttempts(attempts); // Store all attempts, filtering for pending status will happen in useMemo
+        setBookingAttempts(attempts);
       }, (err) => {
         console.error("Error fetching booking attempts:", err);
         toast({
@@ -139,7 +145,7 @@ export default function VenueFlowPage() {
   const processedAndGroupedAttempts: GroupedBookingAttempts = useMemo(() => {
     const processed: ProcessedBookingAttempt[] = pendingBookingAttempts.map(attempt => {
       const attemptAsBookingConcept: Booking = {
-        id: attempt.id,
+        id: attempt.id, // Use attempt ID for temporary conflict checking
         title: attempt.requestedTitle,
         venue: attempt.requestedVenue,
         start: attempt.requestedStart,
@@ -168,21 +174,31 @@ export default function VenueFlowPage() {
 
     const grouped: GroupedBookingAttempts = {};
     processed.forEach(attempt => {
-      const dateKey = formatToSingaporeTime(parseISO(attempt.requestedStart), 'yyyy-MM-dd');
+      // Ensure requestedStart is valid before parsing
+      const dateKey = attempt.requestedStart ? formatToSingaporeTime(parseISO(attempt.requestedStart), 'yyyy-MM-dd') : 'Invalid Date';
       if (!grouped[dateKey]) {
         grouped[dateKey] = [];
       }
       grouped[dateKey].push(attempt);
     });
-
+    
+    // Sort attempts within each day group by start time
     for (const dateKey in grouped) {
-      grouped[dateKey].sort((a, b) => parseISO(a.requestedStart).getTime() - parseISO(b.requestedStart).getTime());
+      if (dateKey !== 'Invalid Date') {
+        grouped[dateKey].sort((a, b) => {
+            const timeA = a.requestedStart ? parseISO(a.requestedStart).getTime() : 0;
+            const timeB = b.requestedStart ? parseISO(b.requestedStart).getTime() : 0;
+            return timeA - timeB;
+        });
+      }
     }
     return grouped;
   }, [pendingBookingAttempts, allBookings]);
 
   const sortedDateKeysForRequests = useMemo(() => {
-    return Object.keys(processedAndGroupedAttempts).sort((a,b) => parseISO(a).getTime() - parseISO(b).getTime());
+     return Object.keys(processedAndGroupedAttempts)
+       .filter(dateKey => dateKey !== 'Invalid Date') // Filter out invalid dates
+       .sort((a, b) => parseISO(a).getTime() - parseISO(b).getTime());
   }, [processedAndGroupedAttempts]);
 
 
@@ -318,7 +334,7 @@ export default function VenueFlowPage() {
         return false;
       }
       
-      const savedBooking = await response.json();
+      // const savedBooking = await response.json(); // Not directly used after this
 
       toast({
         title: 'Booking Saved!',
@@ -339,7 +355,7 @@ export default function VenueFlowPage() {
   };
 
   const handleApproveBookingRequest = async (attempt: BookingAttempt) => {
-    if (!isAdmin) return;
+    if (!isAdmin || !user) return;
 
     const bookingToCreate: Booking = {
       id: generateBookingId(), 
@@ -362,33 +378,81 @@ export default function VenueFlowPage() {
           title: 'Request Approved',
           description: `Booking for "${attempt.requestedTitle}" has been created.`,
         });
+        
+        if (attempt.userEmail) {
+          const emailSubject = 'Booking Request Approved';
+          const emailBody = `
+            <p>Dear ${attempt.userDisplayName || 'User'},</p>
+            <p>Your booking request for <strong>"${attempt.requestedTitle}"</strong> at <strong>${attempt.requestedVenue}</strong> has been approved and confirmed.</p>
+            <p><strong>Details:</strong></p>
+            <ul>
+              <li>Date: ${formatToSingaporeTime(parseISO(attempt.requestedStart), 'EEEE, MMMM d, yyyy')}</li>
+              <li>Time: ${formatToSingaporeTime(parseISO(attempt.requestedStart), 'HH:mm')} - ${formatToSingaporeTime(parseISO(attempt.requestedEnd), 'HH:mm')} (SGT)</li>
+            </ul>
+            <p>Thank you!</p>
+          `;
+          await sendEmail({ to: attempt.userEmail, subject: emailSubject, htmlBody: emailBody });
+          toast({ title: 'Notification Sent', description: `Approval email sent to ${attempt.userEmail}. (Logged to console)`});
+        }
+
       } catch (error: any) {
-        console.error("Error updating booking attempt status:", error);
+        console.error("Error updating booking attempt status or sending email:", error);
         toast({
-          title: 'Approval Error',
-          description: 'Booking was created, but failed to update the request status.',
+          title: 'Approval Finalization Error',
+          description: 'Booking was created, but failed to update the request status or send notification.',
           variant: 'destructive',
         });
       }
     }
   };
   
-  const handleRejectBookingRequest = async (attemptId: string) => {
-    if (!isAdmin) return;
+  const openRejectionDialog = (attempt: BookingAttempt) => {
+    setCurrentAttemptToReject(attempt);
+    setIsRejectionDialogOpen(true);
+  };
+
+  const handleRejectBookingRequestWithReason = async (reason: string) => {
+    if (!isAdmin || !currentAttemptToReject || !user) return;
+    const attemptId = currentAttemptToReject.id;
+    const attemptDetails = currentAttemptToReject; // For email content
+
     try {
       const attemptRef = doc(db, 'bookingAttempts', attemptId);
-      await updateDoc(attemptRef, { status: 'rejected' });
+      await updateDoc(attemptRef, { 
+        status: 'rejected',
+        rejectionReason: reason || "No reason provided." // Ensure reason is not empty
+      });
       toast({
         title: 'Request Rejected',
         description: 'The booking request has been marked as rejected.',
       });
+
+      if (attemptDetails.userEmail) {
+          const emailSubject = 'Booking Request Rejected';
+          const emailBody = `
+            <p>Dear ${attemptDetails.userDisplayName || 'User'},</p>
+            <p>We regret to inform you that your booking request for <strong>"${attemptDetails.requestedTitle}"</strong> at <strong>${attemptDetails.requestedVenue}</strong> has been rejected.</p>
+            <p><strong>Details of Request:</strong></p>
+            <ul>
+              <li>Date: ${formatToSingaporeTime(parseISO(attemptDetails.requestedStart), 'EEEE, MMMM d, yyyy')}</li>
+              <li>Time: ${formatToSingaporeTime(parseISO(attemptDetails.requestedStart), 'HH:mm')} - ${formatToSingaporeTime(parseISO(attemptDetails.requestedEnd), 'HH:mm')} (SGT)</li>
+            </ul>
+            <p><strong>Reason for Rejection:</strong> ${reason || "No specific reason was provided."}</p>
+            <p>Please contact the administrator if you have further questions.</p>
+          `;
+          await sendEmail({ to: attemptDetails.userEmail, subject: emailSubject, htmlBody: emailBody });
+          toast({ title: 'Notification Sent', description: `Rejection email sent to ${attemptDetails.userEmail}. (Logged to console)`});
+        }
+
     } catch (error: any) {
-      console.error("Error rejecting booking attempt:", error);
+      console.error("Error rejecting booking attempt or sending email:", error);
       toast({
         title: 'Rejection Error',
-        description: 'Could not update the request status to rejected.',
+        description: 'Could not update the request status to rejected or send notification.',
         variant: 'destructive',
       });
+    } finally {
+      setCurrentAttemptToReject(null); // Clear the attempt being processed
     }
   };
 
@@ -504,8 +568,8 @@ export default function VenueFlowPage() {
                     <Button size="sm" onClick={() => handleApproveBookingRequest(attempt)} className="bg-green-600 hover:bg-green-700 text-white">
                       <CheckCircle size={16} className="mr-1.5"/> Approve
                     </Button>
-                    <Button size="sm" variant="destructive" onClick={() => handleRejectBookingRequest(attempt.id)}>
-                        <AlertTriangle size={16} className="mr-1.5"/> Reject
+                    <Button size="sm" variant="destructive" onClick={() => openRejectionDialog(attempt)}>
+                        <XCircle size={16} className="mr-1.5"/> Reject
                     </Button>
                   </div>
                 </li>
@@ -653,6 +717,18 @@ export default function VenueFlowPage() {
           booking={selectedBookingInfo}
           onDeleteBooking={handleDeleteBooking}
           onEditBooking={handleStartEditBooking}
+        />
+      )}
+
+      {isRejectionDialogOpen && currentAttemptToReject && (
+        <RejectionReasonDialog
+          isOpen={isRejectionDialogOpen}
+          onClose={() => {
+            setIsRejectionDialogOpen(false);
+            setCurrentAttemptToReject(null);
+          }}
+          onSubmit={handleRejectBookingRequestWithReason}
+          bookingAttemptTitle={currentAttemptToReject.requestedTitle}
         />
       )}
     </div>
