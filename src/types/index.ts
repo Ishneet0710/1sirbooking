@@ -12,6 +12,9 @@ export interface Booking {
   start: string; // ISO 8601 string format
   end: string;   // ISO 8601 string format
   venue: string; // Name of the venue
+  bookedByUserId?: string;
+  bookedByUserDisplayName?: string | null;
+  bookedByUserEmail?: string | null;
   // extendedProps can be used by FullCalendar if needed
   extendedProps?: {
     venue: string;

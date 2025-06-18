@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { formatToSingaporeTime } from '@/lib/datetime';
 import { Badge } from '@/components/ui/badge';
-import { CalendarDays, Clock, Edit3, MapPin, Trash2 } from 'lucide-react';
+import { CalendarDays, Clock, Edit3, MapPin, Trash2, User } from 'lucide-react';
 import { getVenueColor } from '@/config/venues';
 import { useAuth } from '@/context/AuthContext';
 
@@ -38,6 +38,19 @@ const BookingInfoDialog: React.FC<BookingInfoDialogProps> = ({ isOpen, onClose, 
     }
   };
 
+  const getBookedByText = () => {
+    if (booking.bookedByUserDisplayName) {
+      return booking.bookedByUserDisplayName;
+    }
+    if (booking.bookedByUserEmail) {
+      return booking.bookedByUserEmail;
+    }
+    if (booking.bookedByUserId && isAdmin) { // If only UID is present, and current user is admin, it's likely an older admin booking or admin themselves
+        return "Admin";
+    }
+    return "N/A";
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md bg-card shadow-xl rounded-lg">
@@ -61,6 +74,12 @@ const BookingInfoDialog: React.FC<BookingInfoDialogProps> = ({ isOpen, onClose, 
             <Clock className="h-5 w-5 text-muted-foreground" />
             <p className="text-sm">
               {formatToSingaporeTime(booking.start, 'HH:mm')} - {formatToSingaporeTime(booking.end, 'HH:mm')} (SGT)
+            </p>
+          </div>
+          <div className="flex items-center space-x-3">
+            <User className="h-5 w-5 text-muted-foreground" />
+            <p className="text-sm">
+              Booked by: {getBookedByText()}
             </p>
           </div>
         </div>

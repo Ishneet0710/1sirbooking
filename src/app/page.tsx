@@ -14,7 +14,7 @@ import { transformBookingsForCalendar, hasConflict as checkHasConflict, generate
 import { useToast } from '@/hooks/use-toast';
 import type { DateSelectArg, EventClickArg } from '@fullcalendar/core';
 import { parseToSingaporeDate, formatToSingaporeTime, formatToSingaporeISOString, getCurrentSingaporeDate } from '@/lib/datetime';
-import { CalendarDays, Filter, UserCircle, Info, Clock, CheckCircle, AlertTriangle, Hourglass, XCircle } from 'lucide-react';
+import { CalendarDays, Filter, UserCircle, Info, Clock, CheckCircle, AlertTriangle, Hourglass, XCircle, User } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -241,7 +241,7 @@ export default function VenueFlowPage() {
     const startDate = bookingToEdit.start ? parseToSingaporeDate(bookingToEdit.start) : getCurrentSingaporeDate();
     const endDate = bookingToEdit.end ? parseToSingaporeDate(bookingToEdit.end) : new Date(startDate.getTime() + 60 * 60 * 1000);
 
-    setBookingFormInitialData({ ...bookingToEdit, startDate, endDate });
+    setBookingFormInitialData({ ...bookingToEdit, startDate, endDate }); // bookingToEdit now contains bookedBy fields
     setBookingFormMode('admin_edit');
     setIsBookingFormOpen(true);
     setIsBookingInfoOpen(false);
@@ -288,7 +288,7 @@ export default function VenueFlowPage() {
   };
 
 
-  const handleSubmitBooking = async (booking: Booking): Promise<boolean> => {
+  const handleSubmitBooking = async (bookingDataFromForm: Omit<Booking, 'id'> & { id?: string }): Promise<boolean> => {
     if (!user) {
       toast({ title: "Not Logged In", description: "You must be logged in to save a booking.", variant: "destructive" });
       return false;
@@ -298,9 +298,28 @@ export default function VenueFlowPage() {
       return false;
     }
 
-    if (bookingsData && bookingsData[booking.venue]) {
-      const otherBookingsInVenue = allBookings.filter(b => b.id !== booking.id && b.venue === booking.venue);
-      if (checkHasConflict(booking, otherBookingsInVenue)) {
+    let finalBookingData: Booking;
+
+    if (bookingDataFromForm.id) { // Existing booking (edit mode)
+      finalBookingData = {
+        ...bookingDataFromForm,
+        id: bookingDataFromForm.id,
+        // bookedBy fields should already be on bookingDataFromForm if it's an edit, coming from initialData
+      } as Booking;
+    } else { // New booking by admin
+      finalBookingData = {
+        ...bookingDataFromForm,
+        id: generateBookingId(),
+        bookedByUserId: user.uid,
+        bookedByUserDisplayName: user.displayName,
+        bookedByUserEmail: user.email,
+      } as Booking;
+    }
+
+
+    if (bookingsData && bookingsData[finalBookingData.venue]) {
+      const otherBookingsInVenue = allBookings.filter(b => b.id !== finalBookingData.id && b.venue === finalBookingData.venue);
+      if (checkHasConflict(finalBookingData, otherBookingsInVenue)) {
          toast({
           title: 'Booking Conflict',
           description: 'This time slot is already booked for the selected venue, or overlaps with another booking.',
@@ -318,7 +337,7 @@ export default function VenueFlowPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${idToken}`
         },
-        body: JSON.stringify(booking),
+        body: JSON.stringify(finalBookingData),
       });
 
       if (!response.ok) {
@@ -334,15 +353,14 @@ export default function VenueFlowPage() {
         return false;
       }
       
-      // const savedBooking = await response.json(); // Not directly used after this
-
       toast({
         title: 'Booking Saved!',
-        description: `${booking.title} for ${booking.venue} has been successfully ${bookingFormInitialData.id ? 'updated' : 'created'}.`,
+        description: `${finalBookingData.title} for ${finalBookingData.venue} has been successfully ${bookingDataFromForm.id ? 'updated' : 'created'}.`,
       });
-      if (bookingFormInitialData.id) { 
+      if (!bookingDataFromForm.id) { // If it was a new booking (admin direct create)
         setBookingFormInitialData({});
       }
+      // If it was an edit, initialData is already set up, and bookingForm will close.
       return true;
     } catch (err: any) {
       toast({
@@ -363,8 +381,12 @@ export default function VenueFlowPage() {
       venue: attempt.requestedVenue,
       start: attempt.requestedStart,
       end: attempt.requestedEnd,
+      bookedByUserId: attempt.userId,
+      bookedByUserDisplayName: attempt.userDisplayName,
+      bookedByUserEmail: attempt.userEmail,
     };
 
+    // Pass the full bookingToCreate object
     const success = await handleSubmitBooking(bookingToCreate); 
 
     if (success) {
