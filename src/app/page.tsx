@@ -8,8 +8,8 @@ import VenueFilter from '@/components/venue-flow/VenueFilter';
 import BookingForm from '@/components/venue-flow/BookingForm';
 import BookingInfoDialog from '@/components/venue-flow/BookingInfoDialog';
 import VenueCalendarWrapper from '@/components/venue-flow/VenueCalendarWrapper';
-import RejectionReasonDialog from '@/components/venue-flow/RejectionReasonDialog'; // Import new dialog
-import { sendEmail } from '@/ai/flows/send-email-flow'; // Import the email flow
+import RejectionReasonDialog from '@/components/venue-flow/RejectionReasonDialog';
+// import { sendEmail } from '@/ai/flows/send-email-flow'; // No longer directly calling sendEmail
 import { transformBookingsForCalendar, hasConflict as checkHasConflict, generateBookingId } from '@/lib/bookings-utils';
 import { useToast } from '@/hooks/use-toast';
 import type { DateSelectArg, EventClickArg } from '@fullcalendar/core';
@@ -386,7 +386,6 @@ export default function VenueFlowPage() {
       bookedByUserEmail: attempt.userEmail,
     };
 
-    // Pass the full bookingToCreate object
     const success = await handleSubmitBooking(bookingToCreate); 
 
     if (success) {
@@ -413,19 +412,27 @@ export default function VenueFlowPage() {
             </ul>
             <p>Thank you!</p>
           `;
-          const emailResult = await sendEmail({ to: attempt.userEmail, subject: emailSubject, htmlBody: emailBody });
-          if (emailResult.success) {
-            toast({ title: 'Approval Email Sent', description: emailResult.message });
-          } else {
-            toast({ title: 'Approval Email Failed', description: emailResult.message, variant: 'destructive'});
+          
+          try {
+            await addDoc(collection(db, 'mail'), {
+              to: [attempt.userEmail],
+              message: {
+                subject: emailSubject,
+                html: emailBody,
+              }
+            });
+            toast({ title: 'Approval Email Queued', description: 'Notification will be sent via the Firebase Extension.' });
+          } catch (emailError: any) {
+            console.error("Error queuing approval email to Firestore:", emailError);
+            toast({ title: 'Approval Email Queuing Failed', description: 'Could not queue email for sending. Check console.', variant: 'destructive'});
           }
         }
 
       } catch (error: any) {
-        console.error("Error updating booking attempt status or sending email:", error);
+        console.error("Error updating booking attempt status or queuing email:", error);
         toast({
           title: 'Approval Finalization Error',
-          description: 'Booking was created, but failed to update the request status or send notification.',
+          description: 'Booking was created, but failed to update request status or queue notification.',
           variant: 'destructive',
         });
       }
@@ -440,13 +447,13 @@ export default function VenueFlowPage() {
   const handleRejectBookingRequestWithReason = async (reason: string) => {
     if (!isAdmin || !currentAttemptToReject || !user) return;
     const attemptId = currentAttemptToReject.id;
-    const attemptDetails = currentAttemptToReject; // For email content
+    const attemptDetails = currentAttemptToReject; 
 
     try {
       const attemptRef = doc(db, 'bookingAttempts', attemptId);
       await updateDoc(attemptRef, { 
         status: 'rejected',
-        rejectionReason: reason || "No reason provided." // Ensure reason is not empty
+        rejectionReason: reason || "No reason provided." 
       });
       toast({
         title: 'Request Rejected',
@@ -466,23 +473,31 @@ export default function VenueFlowPage() {
             <p><strong>Reason for Rejection:</strong> ${reason || "No specific reason was provided."}</p>
             <p>Please contact the administrator if you have further questions.</p>
           `;
-          const emailResult = await sendEmail({ to: attemptDetails.userEmail, subject: emailSubject, htmlBody: emailBody });
-          if (emailResult.success) {
-            toast({ title: 'Rejection Email Sent', description: emailResult.message });
-          } else {
-            toast({ title: 'Rejection Email Failed', description: emailResult.message, variant: 'destructive'});
+          
+          try {
+            await addDoc(collection(db, 'mail'), {
+              to: [attemptDetails.userEmail],
+              message: {
+                subject: emailSubject,
+                html: emailBody,
+              }
+            });
+            toast({ title: 'Rejection Email Queued', description: 'Notification will be sent via the Firebase Extension.' });
+          } catch (emailError: any) {
+            console.error("Error queuing rejection email to Firestore:", emailError);
+            toast({ title: 'Rejection Email Queuing Failed', description: 'Could not queue email for sending. Check console.', variant: 'destructive'});
           }
         }
 
     } catch (error: any) {
-      console.error("Error rejecting booking attempt or sending email:", error);
+      console.error("Error rejecting booking attempt or queuing email:", error);
       toast({
         title: 'Rejection Error',
-        description: 'Could not update the request status to rejected or send notification.',
+        description: 'Could not update the request status to rejected or queue notification.',
         variant: 'destructive',
       });
     } finally {
-      setCurrentAttemptToReject(null); // Clear the attempt being processed
+      setCurrentAttemptToReject(null); 
     }
   };
 
@@ -764,4 +779,8 @@ export default function VenueFlowPage() {
     </div>
   );
 }
+    
+
+    
+
     
