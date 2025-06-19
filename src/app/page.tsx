@@ -28,7 +28,7 @@ import {
 import LoginLogoutButton from '@/components/auth/LoginLogoutButton';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, query, serverTimestamp, doc, updateDoc } from 'firebase/firestore'; // Removed addDoc for 'mail'
+import { collection, onSnapshot, query, serverTimestamp, doc, updateDoc, addDoc } from 'firebase/firestore';
 import { parseISO } from 'date-fns';
 
 
@@ -201,6 +201,9 @@ export default function VenueFlowPage() {
        .sort((a, b) => parseISO(a).getTime() - parseISO(b).getTime());
   }, [processedAndGroupedAttempts]);
 
+  const handleFilterChange = useCallback((newSelection: string[]) => {
+    setSelectedVenues(newSelection);
+  }, [setSelectedVenues]);
 
   const handleDateClick = (arg: DateSelectArg) => {
     if (!user) {
@@ -262,7 +265,7 @@ export default function VenueFlowPage() {
       };
 
       const bookingAttemptsCollectionRef = collection(db, 'bookingAttempts');
-      await addDoc(bookingAttemptsCollectionRef, { // Renamed addDoc import for clarity if needed, but direct use is fine
+      await addDoc(bookingAttemptsCollectionRef, {
         ...attemptData,
         timestamp: serverTimestamp(),
       });
@@ -780,8 +783,6 @@ export default function VenueFlowPage() {
     </div>
   );
 }
-    
-
     
 
     
