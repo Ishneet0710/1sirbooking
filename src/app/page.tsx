@@ -413,8 +413,12 @@ export default function VenueFlowPage() {
             </ul>
             <p>Thank you!</p>
           `;
-          await sendEmail({ to: attempt.userEmail, subject: emailSubject, htmlBody: emailBody });
-          toast({ title: 'Notification Sent', description: `Approval email sent to ${attempt.userEmail}. (Logged to console)`});
+          const emailResult = await sendEmail({ to: attempt.userEmail, subject: emailSubject, htmlBody: emailBody });
+          if (emailResult.success) {
+            toast({ title: 'Approval Email Sent', description: emailResult.message });
+          } else {
+            toast({ title: 'Approval Email Failed', description: emailResult.message, variant: 'destructive'});
+          }
         }
 
       } catch (error: any) {
@@ -462,8 +466,12 @@ export default function VenueFlowPage() {
             <p><strong>Reason for Rejection:</strong> ${reason || "No specific reason was provided."}</p>
             <p>Please contact the administrator if you have further questions.</p>
           `;
-          await sendEmail({ to: attemptDetails.userEmail, subject: emailSubject, htmlBody: emailBody });
-          toast({ title: 'Notification Sent', description: `Rejection email sent to ${attemptDetails.userEmail}. (Logged to console)`});
+          const emailResult = await sendEmail({ to: attemptDetails.userEmail, subject: emailSubject, htmlBody: emailBody });
+          if (emailResult.success) {
+            toast({ title: 'Rejection Email Sent', description: emailResult.message });
+          } else {
+            toast({ title: 'Rejection Email Failed', description: emailResult.message, variant: 'destructive'});
+          }
         }
 
     } catch (error: any) {
