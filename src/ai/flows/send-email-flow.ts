@@ -66,20 +66,20 @@ const sendEmailFlow = ai.defineFlow(
       // IMPORTANT: Update the 'from' address.
       // For testing without a verified domain, you can use 'Your App <onboarding@resend.dev>'.
       // For production, use an email address from a domain you have verified with Resend.
-      const fromAddress = 'Venue1SIR <noreply@yourdomain.com>'; // REPLACE with your verified sending email or onboarding@resend.dev
+      const fromAddress = 'Venue1SIR <onboarding@resend.dev>'; // Using onboarding@resend.dev for easier testing. REPLACE with your verified sending email for production.
 
       const { data, error } = await resend.emails.send({
         from: fromAddress,
-        to: [input.to],
+        to: [input.to], // Resend API expects 'to' to be an array of strings
         subject: input.subject,
         html: input.htmlBody,
       });
 
       if (error) {
-        console.error('Failed to send email via Resend:', error);
+        console.error('Failed to send email via Resend. Error details:', JSON.stringify(error, null, 2));
         return {
           success: false,
-          message: `Failed to send email: ${error.message || 'Unknown Resend error'}`,
+          message: `Failed to send email via Resend: ${error.message || 'Unknown Resend error'}`,
         };
       }
 
