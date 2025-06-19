@@ -1,7 +1,7 @@
 
 'use server';
 /**
- * @fileOverview A Genkit flow for sending email notifications using Resend.
+ * @fileOverview A Genkit flow for sending email notifications using Nodemailer with Gmail.
  *
  * - sendEmail - A function that sends an email.
  * - EmailInput - The input type for the sendEmail function.
@@ -10,21 +10,31 @@
 
 import 'dotenv/config'; // Load environment variables from .env file
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit'; // Corrected import path for Zod
-import { Resend } from 'resend';
+import { z } from 'genkit';
+import nodemailer from 'nodemailer';
 
-// Initialize Resend with your API key.
-// IMPORTANT: Store your API key in an environment variable (e.g., RESEND_API_KEY)
-// and ensure it's configured for your deployment environment (e.g., Firebase secrets).
-// DO NOT hardcode the API key here.
-// The .env.local file (for local development) or Firebase secrets (for deployment)
-// should contain: RESEND_API_KEY=your_actual_key
-const resendApiKey = process.env.RESEND_API_KEY;
+// Environment variables for Gmail authentication
+const gmailUser = process.env.GMAIL_USER;
+const gmailAppPassword = process.env.GMAIL_APP_PASSWORD;
 
-// Log whether the API key was found (for debugging purposes)
-console.log('[send-email-flow.ts] RESEND_API_KEY from process.env:', resendApiKey ? 'FOUND' : 'NOT FOUND');
+console.log('[send-email-flow.ts] GMAIL_USER from process.env:', gmailUser ? 'FOUND' : 'NOT FOUND');
+console.log('[send-email-flow.ts] GMAIL_APP_PASSWORD from process.env:', gmailAppPassword ? 'FOUND but hidden' : 'NOT FOUND');
 
-const resend = resendApiKey ? new Resend(resendApiKey) : null;
+
+let transporter: nodemailer.Transporter | null = null;
+
+if (gmailUser && gmailAppPassword) {
+  transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: gmailUser,
+      pass: gmailAppPassword, // Use App Password if 2FA is enabled
+    },
+  });
+  console.log('[send-email-flow.ts] Nodemailer transporter initialized with Gmail.');
+} else {
+  console.warn('[send-email-flow.ts] Nodemailer transporter NOT initialized. GMAIL_USER or GMAIL_APP_PASSWORD missing. Email sending will be simulated.');
+}
 
 
 const EmailInputSchema = z.object({
@@ -53,10 +63,10 @@ const sendEmailFlow = ai.defineFlow(
     outputSchema: EmailOutputSchema,
   },
   async (input: EmailInput): Promise<EmailOutput> => {
-    if (!resend) {
-      const warningMessage = 'Resend client not initialized. API key might be missing or invalid. Email sending is disabled.';
+    if (!transporter) {
+      const warningMessage = 'Nodemailer transporter not initialized. Gmail credentials might be missing or invalid. Email sending is disabled.';
       console.warn(`[send-email-flow.ts] ${warningMessage}`);
-      // Fallback to console logging if Resend client isn't initialized
+      // Fallback to console logging
       console.log('[send-email-flow.ts] SIMULATING Email Send:');
       console.log(`  To: ${input.to}`);
       console.log(`  Subject: ${input.subject}`);
@@ -67,48 +77,29 @@ const sendEmailFlow = ai.defineFlow(
       };
     }
 
+    const mailOptions = {
+      from: `"Venue1SIR" <${gmailUser}>`, // Sender address (must be your Gmail address)
+      to: input.to, // List of receivers
+      subject: input.subject, // Subject line
+      html: input.htmlBody, // HTML body
+    };
+
     try {
-      // IMPORTANT: Update the 'from' address.
-      // For testing without a verified domain, you can use 'Your App <onboarding@resend.dev>'.
-      // For production, use an email address from a domain you have verified with Resend.
-      // Example: const fromAddress = 'Your App Name <you@yourverifieddomain.com>';
-      const fromAddress = 'Venue1SIR <onboarding@resend.dev>'; 
-      console.log(`[send-email-flow.ts] Attempting to send email via Resend from: ${fromAddress} to: ${input.to}`);
+      console.log(`[send-email-flow.ts] Attempting to send email via Nodemailer/Gmail from: ${mailOptions.from} to: ${input.to}`);
+      const info = await transporter.sendMail(mailOptions);
 
-      // RESEND POLICY NOTE:
-      // When using 'onboarding@resend.dev' as the 'from' address (for testing without a verified domain),
-      // Resend restricts the 'to' address to ONLY the email address associated with your Resend account
-      // (the one that owns the API key). To send to other arbitrary email addresses,
-      // you MUST verify your own domain with Resend (e.g., at resend.com/domains)
-      // and then use a 'from' address like 'noreply@yourverifieddomain.com'.
-      const { data, error } = await resend.emails.send({
-        from: fromAddress,
-        to: [input.to], // Resend API expects 'to' to be an array of strings
-        subject: input.subject,
-        html: input.htmlBody,
-      });
-
-      if (error) {
-        console.error('[send-email-flow.ts] Failed to send email via Resend. Error details:', JSON.stringify(error, null, 2));
-        return {
-          success: false,
-          message: `Failed to send email via Resend: ${error.message || 'Unknown Resend error. Check server logs.'}`,
-        };
-      }
-
-      console.log('[send-email-flow.ts] Email successfully sent via Resend. Message ID:', data?.id);
+      console.log('[send-email-flow.ts] Email successfully sent via Nodemailer/Gmail. Message ID:', info.messageId);
       return {
         success: true,
-        message: 'Email sent successfully via Resend.',
-        messageId: data?.id,
+        message: 'Email sent successfully via Nodemailer/Gmail.',
+        messageId: info.messageId,
       };
     } catch (err: any) {
-      console.error('[send-email-flow.ts] Error in sendEmailFlow with Resend:', err);
+      console.error('[send-email-flow.ts] Failed to send email via Nodemailer/Gmail. Error details:', err);
       return {
         success: false,
-        message: `Error sending email: ${err.message || 'An unexpected error occurred. Check server logs.'}`,
+        message: `Failed to send email via Nodemailer/Gmail: ${err.message || 'Unknown Nodemailer error. Check server logs.'}`,
       };
     }
   }
 );
-
