@@ -8,6 +8,7 @@
  * - EmailOutput - The return type for the sendEmail function.
  */
 
+import 'dotenv/config'; // Load environment variables from .env file
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { Resend } from 'resend';
@@ -16,7 +17,11 @@ import { Resend } from 'resend';
 // IMPORTANT: Store your API key in an environment variable (e.g., RESEND_API_KEY)
 // and ensure it's configured for your deployment environment (e.g., Firebase secrets).
 // DO NOT hardcode the API key here.
-const resend = new Resend(process.env.RESEND_API_KEY);
+// The .env.local file (for local development) or Firebase secrets (for deployment)
+// should contain: RESEND_API_KEY=your_actual_key
+const resendApiKey = process.env.RESEND_API_KEY;
+const resend = resendApiKey ? new Resend(resendApiKey) : null;
+
 
 const EmailInputSchema = z.object({
   to: z.string().email().describe('The recipient email address.'),
@@ -44,16 +49,16 @@ const sendEmailFlow = ai.defineFlow(
     outputSchema: EmailOutputSchema,
   },
   async (input: EmailInput): Promise<EmailOutput> => {
-    if (!process.env.RESEND_API_KEY) {
-      console.error('Resend API key is not configured. Email sending is disabled.');
-      // Fallback to console logging if API key is missing
-      console.log('SIMULATING Email Send (Resend API Key Missing):');
+    if (!resend) {
+      console.error('Resend client is not initialized. API key might be missing. Email sending is disabled.');
+      // Fallback to console logging if Resend client isn't initialized
+      console.log('SIMULATING Email Send (Resend Client Not Initialized / API Key Missing):');
       console.log(`To: ${input.to}`);
       console.log(`Subject: ${input.subject}`);
       console.log(`HTML Body: ${input.htmlBody}`);
       return {
         success: false,
-        message: 'Resend API key not configured. Email not sent. Logged to console.',
+        message: 'Resend client not initialized. API key missing. Email not sent. Logged to console.',
       };
     }
 
@@ -93,3 +98,4 @@ const sendEmailFlow = ai.defineFlow(
     }
   }
 );
+
