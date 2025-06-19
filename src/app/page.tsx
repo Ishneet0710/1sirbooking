@@ -9,7 +9,7 @@ import BookingForm from '@/components/venue-flow/BookingForm';
 import BookingInfoDialog from '@/components/venue-flow/BookingInfoDialog';
 import VenueCalendarWrapper from '@/components/venue-flow/VenueCalendarWrapper';
 import RejectionReasonDialog from '@/components/venue-flow/RejectionReasonDialog';
-// import { sendEmail } from '@/ai/flows/send-email-flow'; // No longer directly calling sendEmail
+import { sendEmail } from '@/ai/flows/send-email-flow'; // Import sendEmail Genkit flow
 import { transformBookingsForCalendar, hasConflict as checkHasConflict, generateBookingId } from '@/lib/bookings-utils';
 import { useToast } from '@/hooks/use-toast';
 import type { DateSelectArg, EventClickArg } from '@fullcalendar/core';
@@ -28,7 +28,7 @@ import {
 import LoginLogoutButton from '@/components/auth/LoginLogoutButton';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, query, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, serverTimestamp, doc, updateDoc } from 'firebase/firestore'; // Removed addDoc for 'mail'
 import { parseISO } from 'date-fns';
 
 
@@ -202,10 +202,6 @@ export default function VenueFlowPage() {
   }, [processedAndGroupedAttempts]);
 
 
-  const handleFilterChange = (newSelectedVenues: string[]) => {
-    setSelectedVenues(newSelectedVenues);
-  };
-
   const handleDateClick = (arg: DateSelectArg) => {
     if (!user) {
       toast({ title: "Login Required", description: "Please log in to interact with the calendar.", variant: "default" });
@@ -265,7 +261,8 @@ export default function VenueFlowPage() {
         status: 'pending_approval',
       };
 
-      await addDoc(collection(db, 'bookingAttempts'), {
+      const bookingAttemptsCollectionRef = collection(db, 'bookingAttempts');
+      await addDoc(bookingAttemptsCollectionRef, { // Renamed addDoc import for clarity if needed, but direct use is fine
         ...attemptData,
         timestamp: serverTimestamp(),
       });
@@ -414,25 +411,27 @@ export default function VenueFlowPage() {
           `;
           
           try {
-            await addDoc(collection(db, 'mail'), {
-              to: [attempt.userEmail],
-              message: {
-                subject: emailSubject,
-                html: emailBody,
-              }
+            const emailResult = await sendEmail({
+              to: attempt.userEmail,
+              subject: emailSubject,
+              htmlBody: emailBody,
             });
-            toast({ title: 'Approval Email Queued', description: 'Notification will be sent via the Firebase Extension.' });
+            if (emailResult.success) {
+              toast({ title: 'Approval Email Sent', description: emailResult.message });
+            } else {
+              toast({ title: 'Approval Email Failed', description: emailResult.message, variant: 'destructive'});
+            }
           } catch (emailError: any) {
-            console.error("Error queuing approval email to Firestore:", emailError);
-            toast({ title: 'Approval Email Queuing Failed', description: 'Could not queue email for sending. Check console.', variant: 'destructive'});
+            console.error("Error sending approval email:", emailError);
+            toast({ title: 'Approval Email Sending Error', description: 'Could not send email. Check console.', variant: 'destructive'});
           }
         }
 
       } catch (error: any) {
-        console.error("Error updating booking attempt status or queuing email:", error);
+        console.error("Error updating booking attempt status or sending email:", error);
         toast({
           title: 'Approval Finalization Error',
-          description: 'Booking was created, but failed to update request status or queue notification.',
+          description: 'Booking was created, but failed to update request status or send notification.',
           variant: 'destructive',
         });
       }
@@ -475,25 +474,27 @@ export default function VenueFlowPage() {
           `;
           
           try {
-            await addDoc(collection(db, 'mail'), {
-              to: [attemptDetails.userEmail],
-              message: {
-                subject: emailSubject,
-                html: emailBody,
-              }
+            const emailResult = await sendEmail({
+              to: attemptDetails.userEmail,
+              subject: emailSubject,
+              htmlBody: emailBody,
             });
-            toast({ title: 'Rejection Email Queued', description: 'Notification will be sent via the Firebase Extension.' });
+            if (emailResult.success) {
+              toast({ title: 'Rejection Email Sent', description: emailResult.message });
+            } else {
+              toast({ title: 'Rejection Email Failed', description: emailResult.message, variant: 'destructive'});
+            }
           } catch (emailError: any) {
-            console.error("Error queuing rejection email to Firestore:", emailError);
-            toast({ title: 'Rejection Email Queuing Failed', description: 'Could not queue email for sending. Check console.', variant: 'destructive'});
+            console.error("Error sending rejection email:", emailError);
+            toast({ title: 'Rejection Email Sending Error', description: 'Could not send email. Check console.', variant: 'destructive'});
           }
         }
 
     } catch (error: any) {
-      console.error("Error rejecting booking attempt or queuing email:", error);
+      console.error("Error rejecting booking attempt or sending email:", error);
       toast({
         title: 'Rejection Error',
-        description: 'Could not update the request status to rejected or queue notification.',
+        description: 'Could not update the request status to rejected or send notification.',
         variant: 'destructive',
       });
     } finally {
