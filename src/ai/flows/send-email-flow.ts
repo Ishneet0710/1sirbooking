@@ -10,7 +10,7 @@
 
 import 'dotenv/config'; // Load environment variables from .env file
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'genkit'; // Corrected import path for Zod
 import { Resend } from 'resend';
 
 // Initialize Resend with your API key.
@@ -75,6 +75,12 @@ const sendEmailFlow = ai.defineFlow(
       const fromAddress = 'Venue1SIR <onboarding@resend.dev>'; 
       console.log(`[send-email-flow.ts] Attempting to send email via Resend from: ${fromAddress} to: ${input.to}`);
 
+      // RESEND POLICY NOTE:
+      // When using 'onboarding@resend.dev' as the 'from' address (for testing without a verified domain),
+      // Resend restricts the 'to' address to ONLY the email address associated with your Resend account
+      // (the one that owns the API key). To send to other arbitrary email addresses,
+      // you MUST verify your own domain with Resend (e.g., at resend.com/domains)
+      // and then use a 'from' address like 'noreply@yourverifieddomain.com'.
       const { data, error } = await resend.emails.send({
         from: fromAddress,
         to: [input.to], // Resend API expects 'to' to be an array of strings
@@ -105,3 +111,4 @@ const sendEmailFlow = ai.defineFlow(
     }
   }
 );
+
