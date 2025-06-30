@@ -12,7 +12,6 @@ import {
   doc,
   writeBatch,
   serverTimestamp,
-  updateDoc,
   where,
   getDocs,
   runTransaction,
@@ -20,11 +19,22 @@ import {
 import { DEFAULT_ITEMS } from '@/config/items';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Info, UserCircle, Handshake } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Info, UserCircle, Handshake, Box, ArrowRight, Undo2, ShieldCheck, Users } from 'lucide-react';
 import ItemCard from '@/components/item-flow/ItemCard';
 import AppHeader from '@/components/shared/AppHeader';
 import LoanDialog from '@/components/item-flow/LoanDialog';
+import { Button } from '@/components/ui/button';
+import { format } from 'date-fns';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
 
 export default function ItemsPage() {
   const { user, isAdmin } = useAuth();
@@ -34,7 +44,6 @@ export default function ItemsPage() {
   const [loans, setLoans] = useState<Loan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // State for the loan dialog
   const [isLoanDialogOpen, setIsLoanDialogOpen] = useState(false);
   const [currentItemToLoan, setCurrentItemToLoan] = useState<ItemWithLoanDetails | null>(null);
 
@@ -42,8 +51,7 @@ export default function ItemsPage() {
   useEffect(() => {
     const seedItems = async () => {
       const itemsRef = collection(db, 'items');
-      const q = query(itemsRef);
-      const snapshot = await getDocs(q);
+      const snapshot = await getDocs(itemsRef);
 
       if (snapshot.empty) {
         console.log('Items collection is empty. Seeding from config...');
@@ -51,13 +59,12 @@ export default function ItemsPage() {
         DEFAULT_ITEMS.forEach(itemSpec => {
           const docRef = doc(itemsRef, itemSpec.id);
           const newItem: Omit<Item, 'id'> = {
-            specId: itemSpec.id,
             name: itemSpec.name,
             category: itemSpec.category,
             description: itemSpec.description,
             imageUrl: itemSpec.imageUrl || `https://placehold.co/600x400.png`,
-            status: 'Available',
-            currentLoanId: null,
+            totalQuantity: itemSpec.quantity,
+            availableQuantity: itemSpec.quantity,
           };
           batch.set(docRef, newItem);
         });
@@ -106,10 +113,16 @@ export default function ItemsPage() {
   }, [toast]);
   
   const itemsWithLoanDetails: ItemWithLoanDetails[] = useMemo(() => {
-    const activeLoansMap = new Map(loans.map(loan => [loan.itemId, loan]));
+    const loansByItemId = new Map<string, Loan[]>();
+    loans.forEach(loan => {
+      const existingLoans = loansByItemId.get(loan.itemId) || [];
+      existingLoans.push(loan);
+      loansByItemId.set(loan.itemId, existingLoans);
+    });
+    
     return items.map(item => ({
       ...item,
-      activeLoan: activeLoansMap.get(item.id) || null,
+      activeLoans: loansByItemId.get(item.id) || [],
     }));
   }, [items, loans]);
 
@@ -122,28 +135,32 @@ export default function ItemsPage() {
     setIsLoanDialogOpen(true);
   };
 
-  const handleConfirmLoan = async (expectedReturnDate: Date) => {
-    if (!user || !currentItemToLoan) {
-      toast({ title: "Error", description: "User or item information is missing.", variant: "destructive" });
+  const handleConfirmLoan = async (expectedReturnDate: Date, quantity: number) => {
+    if (!user || !currentItemToLoan || quantity <= 0) {
+      toast({ title: "Error", description: "User, item, or quantity information is missing.", variant: "destructive" });
       return;
     }
     
     const itemRef = doc(db, 'items', currentItemToLoan.id);
-    const newLoanRef = doc(collection(db, 'loans')); // Prepare new loan doc ref
+    const newLoanRef = doc(collection(db, 'loans'));
 
     try {
-      // Use a transaction to ensure atomicity. This prevents race conditions
-      // where two users try to loan the same item at the same time.
       await runTransaction(db, async (transaction) => {
         const itemDoc = await transaction.get(itemRef);
 
-        if (!itemDoc.exists() || itemDoc.data().status !== 'Available') {
-          // This error will be caught by the catch block below, failing the transaction.
-          throw new Error("This item is no longer available. It may have just been loaned out by another user.");
+        if (!itemDoc.exists()) {
+          throw new Error("This item could not be found.");
+        }
+        
+        const currentAvailable = itemDoc.data().availableQuantity;
+        if (currentAvailable < quantity) {
+           throw new Error(`Loan failed. Only ${currentAvailable} of this item are available.`);
         }
 
-        const newLoanData = {
+        const newLoanData: Omit<Loan, 'id'> = {
           itemId: currentItemToLoan.id,
+          itemName: currentItemToLoan.name, // Denormalize name for easier display
+          quantityLoaned: quantity,
           userId: user.uid,
           userDisplayName: user.displayName,
           userEmail: user.email,
@@ -152,15 +169,13 @@ export default function ItemsPage() {
           returnDate: null,
         };
 
-        // Perform the writes within the transaction
         transaction.set(newLoanRef, newLoanData);
         transaction.update(itemRef, {
-          status: 'Loaned Out',
-          currentLoanId: newLoanRef.id,
+          availableQuantity: currentAvailable - quantity,
         });
       });
 
-      toast({ title: "Success!", description: `You have successfully loaned ${currentItemToLoan.name}.` });
+      toast({ title: "Success!", description: `You have successfully loaned ${quantity}x ${currentItemToLoan.name}.` });
 
     } catch (error: any) {
       console.error("Error loaning item within transaction:", error);
@@ -176,72 +191,55 @@ export default function ItemsPage() {
   };
 
 
-  const handleReturnItem = async (loanId: string, itemId: string) => {
-    if (!user) {
-      toast({ title: "Login Required", description: "You must be logged in to return an item." });
+  const handleReturnItem = async (loanId: string) => {
+    const loanToReturn = loans.find(l => l.id === loanId);
+
+    if (!user || !loanToReturn) {
+      toast({ title: "Error", description: "Loan details not found.", variant: "destructive" });
       return;
     }
 
-    const itemToReturn = items.find(item => item.id === itemId);
-    if (!itemToReturn) {
-      toast({ title: "Error", description: "Item not found.", variant: "destructive" });
-      return;
-    }
-
+    const itemRef = doc(db, 'items', loanToReturn.itemId);
     const loanRef = doc(db, 'loans', loanId);
-    const itemRef = doc(db, 'items', itemId);
-
-    const batch = writeBatch(db);
-
-    batch.update(loanRef, { returnDate: serverTimestamp() });
-    batch.update(itemRef, {
-      status: 'Available',
-      currentLoanId: null,
-    });
 
     try {
-      await batch.commit();
-      toast({ title: "Success!", description: `${itemToReturn.name} has been returned.` });
-    } catch (error) {
-      console.error("Error returning item:", error);
-      toast({ title: "Error", description: "Could not process the return. Please try again.", variant: "destructive" });
+        await runTransaction(db, async (transaction) => {
+            const itemDoc = await transaction.get(itemRef);
+            const loanDoc = await transaction.get(loanRef);
+
+            if (!itemDoc.exists() || !loanDoc.exists()) {
+                throw new Error("Item or Loan data could not be found.");
+            }
+            if (loanDoc.data().returnDate !== null) {
+                // This check is a safeguard, as the UI should not show a return button for returned items.
+                throw new Error("This loan has already been processed.");
+            }
+
+            const currentAvailable = itemDoc.data().availableQuantity;
+            const quantityToReturn = loanDoc.data().quantityLoaned;
+
+            transaction.update(loanRef, { returnDate: serverTimestamp() });
+            transaction.update(itemRef, {
+                availableQuantity: currentAvailable + quantityToReturn,
+            });
+        });
+
+        toast({ title: "Success!", description: `${loanToReturn.itemName} has been returned.` });
+    } catch (error: any) {
+        console.error("Error returning item:", error);
+        toast({ title: "Error", description: "Could not process the return. Please try again.", variant: "destructive" });
     }
   };
 
-  const myLoans = useMemo(() => {
+  const myActiveLoans = useMemo(() => {
     if (!user) return [];
-    return itemsWithLoanDetails.filter(item => item.activeLoan?.userId === user.uid);
-  }, [itemsWithLoanDetails, user]);
-
-  const availableItems = useMemo(() => {
-    return itemsWithLoanDetails.filter(item => item.status === 'Available');
-  }, [itemsWithLoanDetails]);
+    return loans.filter(loan => loan.userId === user.uid);
+  }, [loans, user]);
   
-  const loanedOutItems = useMemo(() => {
-     return itemsWithLoanDetails.filter(item => item.status === 'Loaned Out' && (myLoans.findIndex(i => i.id === item.id) === -1));
-  }, [itemsWithLoanDetails, myLoans]);
-
-  const renderItemList = (title: string, list: ItemWithLoanDetails[]) => (
-     <div className="mb-12">
-      <h2 className="text-2xl font-bold tracking-tight text-primary mb-4">{title}</h2>
-      {list.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {list.map(item => (
-            <ItemCard
-              key={item.id}
-              item={item}
-              currentUser={user}
-              isAdmin={isAdmin}
-              onInitiateLoan={handleInitiateLoan}
-              onReturn={handleReturnItem}
-            />
-          ))}
-        </div>
-      ) : (
-        <p className="text-muted-foreground">No items in this category.</p>
-      )}
-    </div>
-  );
+  const allActiveLoans = useMemo(() => {
+    if (!isAdmin) return [];
+    return loans;
+  }, [loans, isAdmin]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center p-4 md:p-8">
@@ -256,45 +254,91 @@ export default function ItemsPage() {
           </Card>
         )}
 
-        {user && myLoans.length > 0 && (
-          <Card className="mb-8 shadow-lg">
+        {user && myActiveLoans.length > 0 && (
+          <Card className="mb-12 shadow-lg">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl font-headline text-accent">
                 <Handshake /> Your Current Loans
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {myLoans.map(item => (
-                  <ItemCard
+               <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Item</TableHead>
+                    <TableHead className="text-center">Quantity</TableHead>
+                    <TableHead>Return By</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {myActiveLoans.map(loan => (
+                    <TableRow key={loan.id}>
+                      <TableCell className="font-medium">{loan.itemName}</TableCell>
+                      <TableCell className="text-center">{loan.quantityLoaned}</TableCell>
+                      <TableCell>{format(loan.expectedReturnDate.toDate(), 'PPP')}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="outline" size="sm" onClick={() => handleReturnItem(loan.id)}>
+                          <Undo2 className="mr-2 h-4 w-4" /> Return
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+        
+        <div className="mb-12">
+            <h2 className="text-2xl font-bold tracking-tight text-primary mb-4">Browse All Items</h2>
+            {itemsWithLoanDetails.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {itemsWithLoanDetails.map(item => (
+                    <ItemCard
                     key={item.id}
                     item={item}
                     currentUser={user}
                     isAdmin={isAdmin}
                     onInitiateLoan={handleInitiateLoan}
-                    onReturn={handleReturnItem}
-                  />
+                    />
                 ))}
-              </div>
+                </div>
+            ) : (
+                <p className="text-muted-foreground">No items available to display.</p>
+            )}
+        </div>
+        
+        {isAdmin && allActiveLoans.length > 0 && (
+           <Card className="mb-12 shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-xl font-headline text-primary">
+                <ShieldCheck /> All Active Loans (Admin View)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+               <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead>Item</TableHead>
+                    <TableHead className="text-center">Quantity</TableHead>
+                    <TableHead>Return By</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {allActiveLoans.map(loan => (
+                    <TableRow key={loan.id}>
+                       <TableCell className="font-medium">{loan.userDisplayName || loan.userEmail}</TableCell>
+                      <TableCell>{loan.itemName}</TableCell>
+                      <TableCell className="text-center">{loan.quantityLoaned}</TableCell>
+                      <TableCell>{format(loan.expectedReturnDate.toDate(), 'PPP')}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
-        )}
-        
-        {renderItemList("Available Items", availableItems)}
-        
-        {isAdmin && renderItemList("All Loaned Out Items", loanedOutItems)}
-        
-        {!isAdmin && loanedOutItems.length > 0 && (
-           <div className="mb-12">
-            <h2 className="text-2xl font-bold tracking-tight text-primary mb-4">Other Loaned Items</h2>
-             <Alert>
-               <Info className="h-4 w-4" />
-               <AlertTitle>Heads Up!</AlertTitle>
-               <AlertDescription>
-                 These items are currently on loan to other users.
-               </AlertDescription>
-             </Alert>
-          </div>
         )}
 
       </main>
@@ -308,6 +352,7 @@ export default function ItemsPage() {
           }}
           onSubmit={handleConfirmLoan}
           itemName={currentItemToLoan.name}
+          availableQuantity={currentItemToLoan.availableQuantity}
         />
       )}
     </div>

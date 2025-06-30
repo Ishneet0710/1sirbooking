@@ -67,22 +67,24 @@ export interface LoanableItemSpec {
   category: string;
   description: string;
   imageUrl?: string;
+  quantity: number;
 }
 
 export interface Item {
-  id: string; // Firestore document ID (matches specId)
-  specId: string; // Corresponds to LoanableItemSpec id
+  id: string; // Firestore document ID, e.g. 'lap-recorder'
   name: string;
   category: string;
   description: string;
   imageUrl?: string;
-  status: 'Available' | 'Loaned Out';
-  currentLoanId?: string | null;
+  totalQuantity: number;
+  availableQuantity: number;
 }
 
 export interface Loan {
   id: string; // Firestore document ID
   itemId: string;
+  itemName: string; // Denormalized for easier display
+  quantityLoaned: number;
   userId: string;
   userDisplayName: string | null;
   userEmail: string | null;
@@ -93,5 +95,5 @@ export interface Loan {
 
 // Used for client-side data merging
 export interface ItemWithLoanDetails extends Item {
-  activeLoan?: Loan | null;
+  activeLoans: Loan[];
 }
