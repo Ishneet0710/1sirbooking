@@ -62,7 +62,6 @@ export default function ItemsPage() {
             name: itemSpec.name,
             category: itemSpec.category,
             description: itemSpec.description,
-            imageUrl: itemSpec.imageUrl || `https://placehold.co/600x400.png`,
             totalQuantity: itemSpec.quantity,
             availableQuantity: itemSpec.quantity,
           };

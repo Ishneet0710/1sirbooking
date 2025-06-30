@@ -1,29 +1,25 @@
-
 import type { LoanableItemSpec } from '@/types';
 
 export const DEFAULT_ITEMS: LoanableItemSpec[] = [
   {
-    id: 'lap-recorder',
-    name: 'Lap Recorder',
+    id: 'lap-recorders',
+    name: 'Lap Recorders',
     category: 'Audio Equipment',
-    description: 'High-quality digital voice recorder, perfect for interviews and lectures. Comes with a lavalier microphone.',
-    imageUrl: 'https://placehold.co/600x400.png',
+    description: 'High-quality digital voice recorders, perfect for interviews and lectures.',
     quantity: 2,
   },
   {
-    id: 'flash-guard',
-    name: 'Flash Guard',
+    id: 'flash-guards',
+    name: 'Flash Guards',
     category: 'Photography',
-    description: 'Diffuser for on-camera flash to soften light and reduce harsh shadows.',
-    imageUrl: 'https://placehold.co/600x400.png',
+    description: 'Diffusers for on-camera flash to soften light and reduce harsh shadows.',
     quantity: 1,
   },
   {
-    id: 'laminator',
-    name: 'Laminator',
+    id: 'laminators',
+    name: 'Laminators',
     category: 'Office Equipment',
-    description: 'A4 size laminating machine for preserving documents.',
-    imageUrl: 'https://placehold.co/600x400.png',
+    description: 'A4 size laminating machines for preserving documents.',
     quantity: 1,
   },
   {
@@ -31,7 +27,6 @@ export const DEFAULT_ITEMS: LoanableItemSpec[] = [
     name: 'Projector',
     category: 'Electronics',
     description: 'Portable HD projector with HDMI and USB inputs. Includes remote and power cable.',
-    imageUrl: 'https://placehold.co/600x400.png',
     quantity: 1,
   },
   {
@@ -39,7 +34,6 @@ export const DEFAULT_ITEMS: LoanableItemSpec[] = [
     name: 'IPPT Chip Box (With Chips)',
     category: 'Training Equipment',
     description: 'A full box of electronic timing chips for IPPT.',
-    imageUrl: 'https://placehold.co/600x400.png',
     quantity: 1,
   },
 ];

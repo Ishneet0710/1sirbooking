@@ -66,7 +66,6 @@ export interface LoanableItemSpec {
   name: string;
   category: string;
   description: string;
-  imageUrl?: string;
   quantity: number;
 }
 
@@ -75,7 +74,6 @@ export interface Item {
   name: string;
   category: string;
   description: string;
-  imageUrl?: string;
   totalQuantity: number;
   availableQuantity: number;
 }

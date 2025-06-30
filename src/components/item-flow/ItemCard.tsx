@@ -6,7 +6,6 @@ import type { ItemWithLoanDetails } from '@/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import Image from 'next/image';
 import { Handshake, CheckCircle, Users } from 'lucide-react';
 
 
@@ -60,16 +59,6 @@ const ItemCard: React.FC<ItemCardProps> = ({ item, currentUser, isAdmin, onIniti
   return (
     <Card className="flex flex-col">
       <CardHeader>
-        <div className="relative aspect-[4/3] w-full rounded-md overflow-hidden mb-4">
-             <Image 
-                src={item.imageUrl || 'https://placehold.co/600x400.png'} 
-                alt={item.name} 
-                fill
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                className="object-cover"
-                data-ai-hint="equipment gadget"
-             />
-        </div>
         <CardTitle>{item.name}</CardTitle>
         <CardDescription>{item.description}</CardDescription>
       </CardHeader>
