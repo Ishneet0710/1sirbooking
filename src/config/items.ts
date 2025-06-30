@@ -24,7 +24,7 @@ export const DEFAULT_ITEMS: LoanableItemSpec[] = [
   },
   {
     id: 'projector',
-    name: 'Projector',
+    name: 'Projects',
     category: 'Electronics',
     description: 'Portable HD projector with HDMI and USB inputs. Includes remote and power cable.',
     quantity: 1,
