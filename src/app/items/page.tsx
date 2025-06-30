@@ -21,9 +21,10 @@ import { DEFAULT_ITEMS } from '@/config/items';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Info, UserCircle, Handshake, Undo2 } from 'lucide-react';
+import { Info, UserCircle, Handshake } from 'lucide-react';
 import ItemCard from '@/components/item-flow/ItemCard';
 import AppHeader from '@/components/shared/AppHeader';
+import LoanDialog from '@/components/item-flow/LoanDialog';
 
 export default function ItemsPage() {
   const { user, isAdmin } = useAuth();
@@ -32,6 +33,10 @@ export default function ItemsPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [loans, setLoans] = useState<Loan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // State for the loan dialog
+  const [isLoanDialogOpen, setIsLoanDialogOpen] = useState(false);
+  const [currentItemToLoan, setCurrentItemToLoan] = useState<ItemWithLoanDetails | null>(null);
 
   // Seed items from config file if the collection is empty
   useEffect(() => {
@@ -61,7 +66,6 @@ export default function ItemsPage() {
       }
     };
     
-    // We run this once on mount, we don't need to re-run it
     seedItems().catch(console.error);
   }, []);
 
@@ -109,28 +113,38 @@ export default function ItemsPage() {
     }));
   }, [items, loans]);
 
-  const handleLoanItem = async (itemId: string) => {
+  const handleInitiateLoan = (item: ItemWithLoanDetails) => {
     if (!user) {
-      toast({ title: "Login Required", description: "You must be logged in to loan an item." });
+        toast({ title: "Login Required", description: "You must be logged in to loan an item." });
+        return;
+    }
+    setCurrentItemToLoan(item);
+    setIsLoanDialogOpen(true);
+  };
+
+  const handleConfirmLoan = async (expectedReturnDate: Date) => {
+    if (!user || !currentItemToLoan) {
+      toast({ title: "Error", description: "User or item information is missing.", variant: "destructive" });
       return;
     }
-
-    const itemToLoan = items.find(item => item.id === itemId);
+    
+    const itemToLoan = items.find(item => item.id === currentItemToLoan.id);
     if (!itemToLoan || itemToLoan.status !== 'Available') {
       toast({ title: "Unavailable", description: "This item is not available for loan.", variant: "destructive" });
       return;
     }
 
     const loansRef = collection(db, 'loans');
-    const itemRef = doc(db, 'items', itemId);
+    const itemRef = doc(db, 'items', currentItemToLoan.id);
 
     try {
       const newLoanData = {
-        itemId: itemId,
+        itemId: currentItemToLoan.id,
         userId: user.uid,
         userDisplayName: user.displayName,
         userEmail: user.email,
         loanDate: serverTimestamp(),
+        expectedReturnDate: expectedReturnDate,
         returnDate: null,
       };
       
@@ -145,8 +159,12 @@ export default function ItemsPage() {
     } catch (error) {
       console.error("Error loaning item:", error);
       toast({ title: "Error", description: "Could not process the loan. Please try again.", variant: "destructive" });
+    } finally {
+        setIsLoanDialogOpen(false);
+        setCurrentItemToLoan(null);
     }
   };
+
 
   const handleReturnItem = async (loanId: string, itemId: string) => {
     if (!user) {
@@ -190,8 +208,8 @@ export default function ItemsPage() {
   }, [itemsWithLoanDetails]);
   
   const loanedOutItems = useMemo(() => {
-     return itemsWithLoanDetails.filter(item => item.status === 'Loaned Out');
-  }, [itemsWithLoanDetails]);
+     return itemsWithLoanDetails.filter(item => item.status === 'Loaned Out' && (myLoans.findIndex(i => i.id === item.id) === -1));
+  }, [itemsWithLoanDetails, myLoans]);
 
   const renderItemList = (title: string, list: ItemWithLoanDetails[]) => (
      <div className="mb-12">
@@ -204,7 +222,7 @@ export default function ItemsPage() {
               item={item}
               currentUser={user}
               isAdmin={isAdmin}
-              onLoan={handleLoanItem}
+              onInitiateLoan={handleInitiateLoan}
               onReturn={handleReturnItem}
             />
           ))}
@@ -243,7 +261,7 @@ export default function ItemsPage() {
                     item={item}
                     currentUser={user}
                     isAdmin={isAdmin}
-                    onLoan={handleLoanItem}
+                    onInitiateLoan={handleInitiateLoan}
                     onReturn={handleReturnItem}
                   />
                 ))}
@@ -254,22 +272,34 @@ export default function ItemsPage() {
         
         {renderItemList("Available Items", availableItems)}
         
-        {isAdmin && renderItemList("Loaned Out Items", loanedOutItems)}
+        {isAdmin && renderItemList("All Loaned Out Items", loanedOutItems)}
         
         {!isAdmin && loanedOutItems.length > 0 && (
            <div className="mb-12">
-            <h2 className="text-2xl font-bold tracking-tight text-primary mb-4">Loaned Out Items</h2>
+            <h2 className="text-2xl font-bold tracking-tight text-primary mb-4">Other Loaned Items</h2>
              <Alert>
                <Info className="h-4 w-4" />
                <AlertTitle>Heads Up!</AlertTitle>
                <AlertDescription>
-                 These items are currently on loan. Please check back later.
+                 These items are currently on loan to other users.
                </AlertDescription>
              </Alert>
           </div>
         )}
 
       </main>
+
+      {currentItemToLoan && (
+        <LoanDialog
+          isOpen={isLoanDialogOpen}
+          onClose={() => {
+            setIsLoanDialogOpen(false);
+            setCurrentItemToLoan(null);
+          }}
+          onSubmit={handleConfirmLoan}
+          itemName={currentItemToLoan.name}
+        />
+      )}
     </div>
   );
 }

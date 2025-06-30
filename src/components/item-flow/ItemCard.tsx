@@ -1,4 +1,3 @@
-
 "use client";
 
 import type React from 'react';
@@ -8,17 +7,19 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
-import { Handshake, Undo2, UserCheck, ShieldCheck } from 'lucide-react';
+import { Handshake, Undo2, UserCheck, ShieldCheck, CalendarClock } from 'lucide-react';
+import { format } from 'date-fns';
+
 
 interface ItemCardProps {
   item: ItemWithLoanDetails;
   currentUser: User | null;
   isAdmin: boolean;
-  onLoan: (itemId: string) => void;
+  onInitiateLoan: (item: ItemWithLoanDetails) => void;
   onReturn: (loanId: string, itemId: string) => void;
 }
 
-const ItemCard: React.FC<ItemCardProps> = ({ item, currentUser, isAdmin, onLoan, onReturn }) => {
+const ItemCard: React.FC<ItemCardProps> = ({ item, currentUser, isAdmin, onInitiateLoan, onReturn }) => {
   const isLoanedByCurrentUser = item.activeLoan?.userId === currentUser?.uid;
 
   const getStatusBadge = () => {
@@ -74,12 +75,18 @@ const ItemCard: React.FC<ItemCardProps> = ({ item, currentUser, isAdmin, onLoan,
         <p className="text-sm text-muted-foreground">{item.description}</p>
       </CardContent>
       <CardFooter className="flex flex-col items-start gap-4">
-        <div className="h-6">
+        <div className="h-12 flex flex-col justify-center items-start">
          {getLoanedToText()}
+         {item.activeLoan && (
+            <div className="flex items-center text-sm text-muted-foreground mt-1">
+                <CalendarClock className="h-4 w-4 mr-1.5 flex-shrink-0" />
+                <span>Return by: {format(item.activeLoan.expectedReturnDate.toDate(), 'PPP')}</span>
+            </div>
+         )}
         </div>
         <div className="w-full">
             {item.status === 'Available' && (
-                <Button className="w-full" onClick={() => onLoan(item.id)} disabled={!currentUser}>
+                <Button className="w-full" onClick={() => onInitiateLoan(item)} disabled={!currentUser}>
                     <Handshake className="mr-2 h-4 w-4" /> Loan Item
                 </Button>
             )}

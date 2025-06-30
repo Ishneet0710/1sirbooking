@@ -1,4 +1,3 @@
-
 import type { Timestamp } from 'firebase/firestore';
 
 export interface Venue {
@@ -88,6 +87,7 @@ export interface Loan {
   userDisplayName: string | null;
   userEmail: string | null;
   loanDate: Timestamp;
+  expectedReturnDate: Timestamp;
   returnDate?: Timestamp | null;
 }
 
