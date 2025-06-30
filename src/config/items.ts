@@ -1,4 +1,3 @@
-
 import type { LoanableItemSpec } from '@/types';
 
 export const DEFAULT_ITEMS: LoanableItemSpec[] = [
@@ -10,19 +9,19 @@ export const DEFAULT_ITEMS: LoanableItemSpec[] = [
   },
   {
     id: 'flash-guards',
-    name: 'Flash Guards',
+    name: 'Flashguard',
     category: 'Photography',
     quantity: 1,
   },
   {
     id: 'laminators',
-    name: 'Laminators',
+    name: 'Laminator',
     category: 'Office Equipment',
     quantity: 1,
   },
   {
     id: 'projector',
-    name: 'Projects',
+    name: 'Projector',
     category: 'Electronics',
     quantity: 1,
   },
