@@ -19,9 +19,8 @@ import {
 } from 'firebase/firestore';
 import { DEFAULT_ITEMS } from '@/config/items';
 import { useToast } from '@/hooks/use-toast';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Info, UserCircle, Handshake, Box, ArrowRight, Undo2, ShieldCheck, Users } from 'lucide-react';
+import { UserCircle, Handshake, Undo2, ShieldCheck, Users } from 'lucide-react';
 import ItemCard from '@/components/item-flow/ItemCard';
 import AppHeader from '@/components/shared/AppHeader';
 import LoanDialog from '@/components/item-flow/LoanDialog';
@@ -134,7 +133,7 @@ export default function ItemsPage() {
     setIsLoanDialogOpen(true);
   };
 
-  const handleConfirmLoan = async (expectedReturnDate: Date, quantity: number) => {
+  const handleConfirmLoan = async (expectedReturnDate: Date, quantity: number, company: string) => {
     if (!user || !currentItemToLoan || quantity <= 0) {
       toast({ title: "Error", description: "User, item, or quantity information is missing.", variant: "destructive" });
       return;
@@ -163,6 +162,7 @@ export default function ItemsPage() {
           userId: user.uid,
           userDisplayName: user.displayName,
           userEmail: user.email,
+          userCompany: company,
           loanDate: serverTimestamp(),
           expectedReturnDate: expectedReturnDate,
           returnDate: null,
@@ -265,6 +265,7 @@ export default function ItemsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Item</TableHead>
+                    <TableHead>Company</TableHead>
                     <TableHead className="text-center">Quantity</TableHead>
                     <TableHead>Return By</TableHead>
                     <TableHead className="text-right">Action</TableHead>
@@ -274,6 +275,7 @@ export default function ItemsPage() {
                   {myActiveLoans.map(loan => (
                     <TableRow key={loan.id}>
                       <TableCell className="font-medium">{loan.itemName}</TableCell>
+                      <TableCell>{loan.userCompany || '-'}</TableCell>
                       <TableCell className="text-center">{loan.quantityLoaned}</TableCell>
                       <TableCell>{format(loan.expectedReturnDate.toDate(), 'PPP')}</TableCell>
                       <TableCell className="text-right">
@@ -320,6 +322,7 @@ export default function ItemsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>User</TableHead>
+                    <TableHead>Company</TableHead>
                     <TableHead>Item</TableHead>
                     <TableHead className="text-center">Quantity</TableHead>
                     <TableHead>Return By</TableHead>
@@ -329,6 +332,7 @@ export default function ItemsPage() {
                   {allActiveLoans.map(loan => (
                     <TableRow key={loan.id}>
                        <TableCell className="font-medium">{loan.userDisplayName || loan.userEmail}</TableCell>
+                       <TableCell>{loan.userCompany || '-'}</TableCell>
                       <TableCell>{loan.itemName}</TableCell>
                       <TableCell className="text-center">{loan.quantityLoaned}</TableCell>
                       <TableCell>{format(loan.expectedReturnDate.toDate(), 'PPP')}</TableCell>

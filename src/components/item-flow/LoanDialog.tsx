@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 interface LoanDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (expectedReturnDate: Date, quantity: number) => void;
+  onSubmit: (expectedReturnDate: Date, quantity: number, company: string) => void;
   itemName: string;
   availableQuantity: number;
 }
@@ -20,12 +20,14 @@ interface LoanDialogProps {
 const LoanDialog: React.FC<LoanDialogProps> = ({ isOpen, onClose, onSubmit, itemName, availableQuantity }) => {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [quantity, setQuantity] = useState(1);
+  const [company, setCompany] = useState('');
   const { toast } = useToast();
 
   useEffect(() => {
     if (isOpen) {
       setDate(new Date());
       setQuantity(1);
+      setCompany('');
     }
   }, [isOpen]);
 
@@ -42,7 +44,7 @@ const LoanDialog: React.FC<LoanDialogProps> = ({ isOpen, onClose, onSubmit, item
         toast({ title: "Not Enough Stock", description: `You can only loan up to ${availableQuantity} of this item.`, variant: "destructive" });
         return;
     }
-    onSubmit(date, quantity);
+    onSubmit(date, quantity, company);
     onClose();
   };
   
@@ -57,7 +59,7 @@ const LoanDialog: React.FC<LoanDialogProps> = ({ isOpen, onClose, onSubmit, item
         <DialogHeader>
           <DialogTitle>Loan Item: {itemName}</DialogTitle>
           <DialogDescription>
-            Select the quantity and expected return date.
+            Specify the quantity, company (optional), and expected return date.
           </DialogDescription>
         </DialogHeader>
         <div className="py-4 space-y-6">
@@ -70,6 +72,17 @@ const LoanDialog: React.FC<LoanDialogProps> = ({ isOpen, onClose, onSubmit, item
                 onChange={(e) => setQuantity(parseInt(e.target.value, 10) || 1)}
                 min="1"
                 max={availableQuantity}
+                className="w-full"
+            />
+          </div>
+           <div className="grid w-full items-center gap-1.5">
+            <Label htmlFor="company">Company / Unit (Optional)</Label>
+            <Input
+                id="company"
+                type="text"
+                placeholder="Your company or unit name"
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
                 className="w-full"
             />
           </div>

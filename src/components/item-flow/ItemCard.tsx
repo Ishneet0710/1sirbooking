@@ -49,7 +49,7 @@ const ItemCard: React.FC<ItemCardProps> = ({ item, currentUser, isAdmin, onIniti
             <ul className="pl-4 text-left">
                 {item.activeLoans.map(loan => (
                     <li key={loan.id} className="truncate">
-                        - {loan.userDisplayName || loan.userEmail} ({loan.quantityLoaned}x)
+                        - {loan.userDisplayName || loan.userEmail} {loan.userCompany ? `(${loan.userCompany})` : ''} ({loan.quantityLoaned}x)
                     </li>
                 ))}
             </ul>

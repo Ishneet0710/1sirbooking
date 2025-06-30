@@ -66,7 +66,6 @@ export interface LoanableItemSpec {
   id: string;
   name: string;
   category: string;
-  description?: string;
   quantity: number;
 }
 
@@ -74,7 +73,6 @@ export interface Item {
   id: string; // Firestore document ID, e.g. 'lap-recorder'
   name: string;
   category: string;
-  description?: string;
   totalQuantity: number;
   availableQuantity: number;
 }
@@ -87,6 +85,7 @@ export interface Loan {
   userId: string;
   userDisplayName: string | null;
   userEmail: string | null;
+  userCompany?: string;
   loanDate: Timestamp;
   expectedReturnDate: Timestamp;
   returnDate?: Timestamp | null;
