@@ -9,12 +9,12 @@ import BookingForm from '@/components/venue-flow/BookingForm';
 import BookingInfoDialog from '@/components/venue-flow/BookingInfoDialog';
 import VenueCalendarWrapper from '@/components/venue-flow/VenueCalendarWrapper';
 import RejectionReasonDialog from '@/components/venue-flow/RejectionReasonDialog';
-import { sendEmail } from '@/ai/flows/send-email-flow'; // Import sendEmail Genkit flow
+import { sendEmail } from '@/ai/flows/send-email-flow';
 import { transformBookingsForCalendar, hasConflict as checkHasConflict, generateBookingId } from '@/lib/bookings-utils';
 import { useToast } from '@/hooks/use-toast';
 import type { DateSelectArg, EventClickArg } from '@fullcalendar/core';
 import { parseToSingaporeDate, formatToSingaporeTime, formatToSingaporeISOString, getCurrentSingaporeDate } from '@/lib/datetime';
-import { CalendarDays, Filter, UserCircle, Info, Clock, CheckCircle, AlertTriangle, Hourglass, XCircle, User } from 'lucide-react';
+import { Filter, UserCircle, Info, CheckCircle, AlertTriangle, Hourglass, XCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -25,11 +25,11 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import LoginLogoutButton from '@/components/auth/LoginLogoutButton';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, serverTimestamp, doc, updateDoc, addDoc } from 'firebase/firestore';
 import { parseISO } from 'date-fns';
+import AppHeader from '@/components/shared/AppHeader';
 
 
 interface ProcessedBookingAttempt extends BookingAttempt {
@@ -63,7 +63,6 @@ export default function VenueFlowPage() {
 
   // State for rejection reason dialog
   const [isRejectionDialogOpen, setIsRejectionDialogOpen] = useState(false);
-  const [rejectionReason, setRejectionReason] = useState(''); // Though managed inside dialog, can be here for parent control
   const [currentAttemptToReject, setCurrentAttemptToReject] = useState<BookingAttempt | null>(null);
 
 
@@ -96,7 +95,6 @@ export default function VenueFlowPage() {
     if (isAdmin && user) {
       const attemptsQuery = query(
         collection(db, "bookingAttempts")
-        // orderBy("timestamp", "desc") // Sorting happens in useMemo now
       );
       const unsubscribeAttempts = onSnapshot(attemptsQuery, (querySnapshot) => {
         const attempts: BookingAttempt[] = [];
@@ -145,7 +143,7 @@ export default function VenueFlowPage() {
   const processedAndGroupedAttempts: GroupedBookingAttempts = useMemo(() => {
     const processed: ProcessedBookingAttempt[] = pendingBookingAttempts.map(attempt => {
       const attemptAsBookingConcept: Booking = {
-        id: attempt.id, // Use attempt ID for temporary conflict checking
+        id: attempt.id, 
         title: attempt.requestedTitle,
         venue: attempt.requestedVenue,
         start: attempt.requestedStart,
@@ -174,7 +172,6 @@ export default function VenueFlowPage() {
 
     const grouped: GroupedBookingAttempts = {};
     processed.forEach(attempt => {
-      // Ensure requestedStart is valid before parsing
       const dateKey = attempt.requestedStart ? formatToSingaporeTime(parseISO(attempt.requestedStart), 'yyyy-MM-dd') : 'Invalid Date';
       if (!grouped[dateKey]) {
         grouped[dateKey] = [];
@@ -182,7 +179,6 @@ export default function VenueFlowPage() {
       grouped[dateKey].push(attempt);
     });
     
-    // Sort attempts within each day group by start time
     for (const dateKey in grouped) {
       if (dateKey !== 'Invalid Date') {
         grouped[dateKey].sort((a, b) => {
@@ -197,13 +193,13 @@ export default function VenueFlowPage() {
 
   const sortedDateKeysForRequests = useMemo(() => {
      return Object.keys(processedAndGroupedAttempts)
-       .filter(dateKey => dateKey !== 'Invalid Date') // Filter out invalid dates
+       .filter(dateKey => dateKey !== 'Invalid Date')
        .sort((a, b) => parseISO(a).getTime() - parseISO(b).getTime());
   }, [processedAndGroupedAttempts]);
 
   const handleFilterChange = useCallback((newSelection: string[]) => {
     setSelectedVenues(newSelection);
-  }, [setSelectedVenues]);
+  }, []);
 
   const handleDateClick = (arg: DateSelectArg) => {
     if (!user) {
@@ -240,7 +236,7 @@ export default function VenueFlowPage() {
     const startDate = bookingToEdit.start ? parseToSingaporeDate(bookingToEdit.start) : getCurrentSingaporeDate();
     const endDate = bookingToEdit.end ? parseToSingaporeDate(bookingToEdit.end) : new Date(startDate.getTime() + 60 * 60 * 1000);
 
-    setBookingFormInitialData({ ...bookingToEdit, startDate, endDate }); // bookingToEdit now contains bookedBy fields
+    setBookingFormInitialData({ ...bookingToEdit, startDate, endDate });
     setBookingFormMode('admin_edit');
     setIsBookingFormOpen(true);
     setIsBookingInfoOpen(false);
@@ -300,13 +296,12 @@ export default function VenueFlowPage() {
 
     let finalBookingData: Booking;
 
-    if (bookingDataFromForm.id) { // Existing booking (edit mode)
+    if (bookingDataFromForm.id) { 
       finalBookingData = {
         ...bookingDataFromForm,
         id: bookingDataFromForm.id,
-        // bookedBy fields should already be on bookingDataFromForm if it's an edit, coming from initialData
       } as Booking;
-    } else { // New booking by admin
+    } else { 
       finalBookingData = {
         ...bookingDataFromForm,
         id: generateBookingId(),
@@ -357,10 +352,9 @@ export default function VenueFlowPage() {
         title: 'Booking Saved!',
         description: `${finalBookingData.title} for ${finalBookingData.venue} has been successfully ${bookingDataFromForm.id ? 'updated' : 'created'}.`,
       });
-      if (!bookingDataFromForm.id) { // If it was a new booking (admin direct create)
+      if (!bookingDataFromForm.id) { 
         setBookingFormInitialData({});
       }
-      // If it was an edit, initialData is already set up, and bookingForm will close.
       return true;
     } catch (err: any) {
       toast({
@@ -633,15 +627,7 @@ export default function VenueFlowPage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center p-4 md:p-8">
-      <header className="w-full max-w-7xl mb-8 flex justify-between items-center">
-        <div className="flex items-center space-x-2">
-          <CalendarDays size={20} className="text-accent" />
-          <h1 className="text-lg font-headline text-primary">
-            Venue1SIR
-          </h1>
-        </div>
-        <LoginLogoutButton />
-      </header>
+      <AppHeader />
 
       <main className="w-full max-w-7xl lg:grid lg:grid-cols-12 lg:gap-6 lg:items-start">
         <div className="lg:col-span-4 hidden lg:flex lg:flex-col space-y-6">
@@ -783,6 +769,3 @@ export default function VenueFlowPage() {
     </div>
   );
 }
-    
-
-    

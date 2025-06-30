@@ -60,3 +60,38 @@ export interface BookingAttempt {
   rejectionReason?: string; // Reason for rejection, optional
 }
 
+// New Types for Item Loaning Feature
+
+export interface LoanableItemSpec {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  imageUrl?: string;
+}
+
+export interface Item {
+  id: string; // Firestore document ID (matches specId)
+  specId: string; // Corresponds to LoanableItemSpec id
+  name: string;
+  category: string;
+  description: string;
+  imageUrl?: string;
+  status: 'Available' | 'Loaned Out';
+  currentLoanId?: string | null;
+}
+
+export interface Loan {
+  id: string; // Firestore document ID
+  itemId: string;
+  userId: string;
+  userDisplayName: string | null;
+  userEmail: string | null;
+  loanDate: Timestamp;
+  returnDate?: Timestamp | null;
+}
+
+// Used for client-side data merging
+export interface ItemWithLoanDetails extends Item {
+  activeLoan?: Loan | null;
+}
