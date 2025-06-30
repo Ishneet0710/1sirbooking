@@ -29,7 +29,7 @@ const ItemCard: React.FC<ItemCardProps> = ({ item, currentUser, isAdmin, onIniti
   const getStatusBadge = () => {
     const isAvailable = item.availableQuantity > 0;
     const colorClass = isAvailable ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
-    const text = isAvailable ? 'Available' : 'Unavailable';
+    const text = isAvailable ? 'Available' : 'Fully Loaned';
     
     return (
       <Badge variant="secondary" className={colorClass}>
@@ -38,4 +38,64 @@ const ItemCard: React.FC<ItemCardProps> = ({ item, currentUser, isAdmin, onIniti
     );
   };
   
-  const getLoanedToText = ().
+  const getLoanedToText = () => {
+    if (!isAdmin || item.activeLoans.length === 0) {
+        return null;
+    }
+
+    return (
+        <div className="mt-4 text-xs text-muted-foreground space-y-1">
+            <h4 className="font-semibold flex items-center gap-1.5"><Users size={14}/> On Loan To</h4>
+            <ul className="pl-4 text-left">
+                {item.activeLoans.map(loan => (
+                    <li key={loan.id} className="truncate">
+                        - {loan.userDisplayName || loan.userEmail} ({loan.quantityLoaned}x)
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+  };
+
+  return (
+    <Card className="flex flex-col">
+      <CardHeader>
+        <div className="relative aspect-[4/3] w-full rounded-md overflow-hidden mb-4">
+             <Image 
+                src={item.imageUrl || 'https://placehold.co/600x400.png'} 
+                alt={item.name} 
+                fill
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                className="object-cover"
+                data-ai-hint="equipment gadget"
+             />
+        </div>
+        <CardTitle>{item.name}</CardTitle>
+        <CardDescription>{item.description}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex-grow">
+        <div className="flex justify-between items-center">
+            {getStatusBadge()}
+            {userLoanedCount > 0 && (
+                <Badge variant="outline" className="flex items-center gap-1.5">
+                    <CheckCircle size={14} className="text-blue-500" /> You have {userLoanedCount}
+                </Badge>
+            )}
+        </div>
+        {getLoanedToText()}
+      </CardContent>
+      <CardFooter>
+        <Button 
+          className="w-full"
+          onClick={() => onInitiateLoan(item)} 
+          disabled={!currentUser || item.availableQuantity === 0}
+        >
+          <Handshake className="mr-2 h-4 w-4" />
+          Loan Item
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+};
+
+export default ItemCard;
