@@ -1,4 +1,3 @@
-
 "use client";
 
 import type React from 'react';
@@ -15,6 +14,8 @@ import {
   addDoc,
   serverTimestamp,
   updateDoc,
+  where,
+  getDocs,
 } from 'firebase/firestore';
 import { DEFAULT_ITEMS } from '@/config/items';
 import { useToast } from '@/hooks/use-toast';
