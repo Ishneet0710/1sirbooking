@@ -1,3 +1,4 @@
+
 import type { Timestamp } from 'firebase/firestore';
 
 export interface Venue {
@@ -65,7 +66,7 @@ export interface LoanableItemSpec {
   id: string;
   name: string;
   category: string;
-  description: string;
+  description?: string;
   quantity: number;
 }
 
@@ -73,7 +74,7 @@ export interface Item {
   id: string; // Firestore document ID, e.g. 'lap-recorder'
   name: string;
   category: string;
-  description: string;
+  description?: string;
   totalQuantity: number;
   availableQuantity: number;
 }

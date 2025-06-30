@@ -1,3 +1,4 @@
+
 "use client";
 
 import type React from 'react';
@@ -61,7 +62,6 @@ export default function ItemsPage() {
           const newItem: Omit<Item, 'id'> = {
             name: itemSpec.name,
             category: itemSpec.category,
-            description: itemSpec.description,
             totalQuantity: itemSpec.quantity,
             availableQuantity: itemSpec.quantity,
           };

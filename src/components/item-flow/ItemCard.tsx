@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo } from 'react';
@@ -60,7 +61,6 @@ const ItemCard: React.FC<ItemCardProps> = ({ item, currentUser, isAdmin, onIniti
     <Card className="flex flex-col">
       <CardHeader>
         <CardTitle>{item.name}</CardTitle>
-        <CardDescription>{item.description}</CardDescription>
       </CardHeader>
       <CardContent className="flex-grow">
         <div className="flex justify-between items-center">
