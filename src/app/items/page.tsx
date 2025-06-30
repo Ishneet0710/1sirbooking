@@ -312,7 +312,7 @@ export default function ItemsPage() {
            <Card className="mb-12 shadow-lg">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl font-headline text-primary">
-                <ShieldCheck /> All Active Loans (Admin View)
+                <ShieldCheck /> All Active Loans
               </CardTitle>
             </CardHeader>
             <CardContent>
