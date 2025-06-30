@@ -11,11 +11,11 @@ import {
   query,
   doc,
   writeBatch,
-  addDoc,
   serverTimestamp,
   updateDoc,
   where,
   getDocs,
+  runTransaction,
 } from 'firebase/firestore';
 import { DEFAULT_ITEMS } from '@/config/items';
 import { useToast } from '@/hooks/use-toast';
@@ -128,37 +128,47 @@ export default function ItemsPage() {
       return;
     }
     
-    const itemToLoan = items.find(item => item.id === currentItemToLoan.id);
-    if (!itemToLoan || itemToLoan.status !== 'Available') {
-      toast({ title: "Unavailable", description: "This item is not available for loan.", variant: "destructive" });
-      return;
-    }
-
-    const loansRef = collection(db, 'loans');
     const itemRef = doc(db, 'items', currentItemToLoan.id);
+    const newLoanRef = doc(collection(db, 'loans')); // Prepare new loan doc ref
 
     try {
-      const newLoanData = {
-        itemId: currentItemToLoan.id,
-        userId: user.uid,
-        userDisplayName: user.displayName,
-        userEmail: user.email,
-        loanDate: serverTimestamp(),
-        expectedReturnDate: expectedReturnDate,
-        returnDate: null,
-      };
-      
-      const loanDocRef = await addDoc(loansRef, newLoanData);
+      // Use a transaction to ensure atomicity. This prevents race conditions
+      // where two users try to loan the same item at the same time.
+      await runTransaction(db, async (transaction) => {
+        const itemDoc = await transaction.get(itemRef);
 
-      await updateDoc(itemRef, {
-        status: 'Loaned Out',
-        currentLoanId: loanDocRef.id,
+        if (!itemDoc.exists() || itemDoc.data().status !== 'Available') {
+          // This error will be caught by the catch block below, failing the transaction.
+          throw new Error("This item is no longer available. It may have just been loaned out by another user.");
+        }
+
+        const newLoanData = {
+          itemId: currentItemToLoan.id,
+          userId: user.uid,
+          userDisplayName: user.displayName,
+          userEmail: user.email,
+          loanDate: serverTimestamp(),
+          expectedReturnDate: expectedReturnDate,
+          returnDate: null,
+        };
+
+        // Perform the writes within the transaction
+        transaction.set(newLoanRef, newLoanData);
+        transaction.update(itemRef, {
+          status: 'Loaned Out',
+          currentLoanId: newLoanRef.id,
+        });
       });
 
-      toast({ title: "Success!", description: `You have successfully loaned ${itemToLoan.name}.` });
-    } catch (error) {
-      console.error("Error loaning item:", error);
-      toast({ title: "Error", description: "Could not process the loan. Please try again.", variant: "destructive" });
+      toast({ title: "Success!", description: `You have successfully loaned ${currentItemToLoan.name}.` });
+
+    } catch (error: any) {
+      console.error("Error loaning item within transaction:", error);
+      toast({ 
+        title: "Loan Failed", 
+        description: error.message || "Could not process the loan due to a server error. Please try again.", 
+        variant: "destructive" 
+      });
     } finally {
         setIsLoanDialogOpen(false);
         setCurrentItemToLoan(null);
