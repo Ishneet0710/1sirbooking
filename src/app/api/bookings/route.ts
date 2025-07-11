@@ -3,7 +3,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebase'; // Client SDK for Firestore
 import { admin } from '@/lib/firebase-admin'; // Admin SDK
 import { ADMIN_UIDS } from '@/config/admin'; // Import ADMIN_UIDS (array)
-import { collection, getDocs, setDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
+import { collection, getDocs, setDoc, deleteDoc, doc, query, where, getDoc } from 'firebase/firestore';
 import type { Booking } from '@/types';
 import { hasConflict as checkConflictUtil } from '@/lib/bookings-utils';
 
@@ -22,6 +22,22 @@ async function verifyAdmin(request: NextRequest): Promise<string | null> {
   } catch (error) {
     console.error("Error verifying token:", error);
     return null; // Token verification failed
+  }
+}
+
+async function verifyUser(request: NextRequest): Promise<{ uid: string; isAdmin: boolean } | null> {
+  const authorization = request.headers.get('Authorization');
+  if (!authorization?.startsWith('Bearer ')) {
+    return null;
+  }
+  const idToken = authorization.split('Bearer ')[1];
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const isAdmin = ADMIN_UIDS.includes(decodedToken.uid);
+    return { uid: decodedToken.uid, isAdmin };
+  } catch (error) {
+    console.error("Error verifying token:", error);
+    return null;
   }
 }
 
@@ -81,11 +97,65 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE a booking (Admin Only)
+// PUT update an existing booking (User can update their own, Admin can update all)
+export async function PUT(request: NextRequest) {
+  const userInfo = await verifyUser(request);
+  if (!userInfo) {
+    return NextResponse.json({ message: 'Unauthorized. Please log in.' }, { status: 401 });
+  }
+
+  try {
+    const bookingData: Booking = await request.json();
+
+    if (!bookingData.id || !bookingData.venue || !bookingData.title || !bookingData.start || !bookingData.end) {
+      return NextResponse.json({ message: 'Invalid booking data provided.' }, { status: 400 });
+    }
+
+    // Get the existing booking
+    const bookingRef = doc(db, 'bookings', bookingData.id);
+    const bookingDoc = await getDoc(bookingRef);
+    
+    if (!bookingDoc.exists()) {
+      return NextResponse.json({ message: 'Booking not found.' }, { status: 404 });
+    }
+
+    const existingBooking = bookingDoc.data() as Booking;
+    
+    // Check if user can modify this booking
+    if (!userInfo.isAdmin && existingBooking.bookedByUserId !== userInfo.uid) {
+      return NextResponse.json({ message: 'Unauthorized. You can only edit your own bookings.' }, { status: 403 });
+    }
+
+    // Server-side conflict check (using client SDK for Firestore, as before)
+    const venueBookingsQuery = query(collection(db, "bookings"), where("venue", "==", bookingData.venue));
+    const venueBookingsSnapshot = await getDocs(venueBookingsQuery);
+    const existingVenueBookings: Booking[] = [];
+    venueBookingsSnapshot.forEach(doc => {
+      if (doc.id !== bookingData.id) {
+        existingVenueBookings.push({ id: doc.id, ...doc.data() } as Booking);
+      }
+    });
+    
+    if (checkConflictUtil(bookingData, existingVenueBookings)) {
+      return NextResponse.json({ message: 'Booking conflict detected.' }, { status: 409 });
+    }
+
+    const { id, ...updateData } = bookingData;
+    await setDoc(bookingRef, updateData); 
+
+    return NextResponse.json(bookingData, { status: 200 });
+
+  } catch (error) {
+    console.error("PUT /api/bookings error:", error);
+    return NextResponse.json({ message: 'Error updating booking with Firestore' }, { status: 500 });
+  }
+}
+
+// DELETE a booking (User can delete their own, Admin can delete all)
 export async function DELETE(request: NextRequest) {
-  const adminUid = await verifyAdmin(request);
-  if (!adminUid) {
-    return NextResponse.json({ message: 'Unauthorized. Admin access required.' }, { status: 403 });
+  const userInfo = await verifyUser(request);
+  if (!userInfo) {
+    return NextResponse.json({ message: 'Unauthorized. Please log in.' }, { status: 401 });
   }
 
   try {
@@ -95,7 +165,21 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ message: 'Booking ID is required.' }, { status: 400 });
     }
 
+    // Get the existing booking
     const bookingRef = doc(db, 'bookings', bookingId);
+    const bookingDoc = await getDoc(bookingRef);
+    
+    if (!bookingDoc.exists()) {
+      return NextResponse.json({ message: 'Booking not found.' }, { status: 404 });
+    }
+
+    const existingBooking = bookingDoc.data() as Booking;
+    
+    // Check if user can delete this booking
+    if (!userInfo.isAdmin && existingBooking.bookedByUserId !== userInfo.uid) {
+      return NextResponse.json({ message: 'Unauthorized. You can only delete your own bookings.' }, { status: 403 });
+    }
+
     await deleteDoc(bookingRef);
 
     return NextResponse.json({ message: 'Booking deleted successfully from Firestore.' }, { status: 200 });

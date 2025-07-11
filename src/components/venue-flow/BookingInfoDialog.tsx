@@ -20,7 +20,7 @@ interface BookingInfoDialogProps {
 }
 
 const BookingInfoDialog: React.FC<BookingInfoDialogProps> = ({ isOpen, onClose, booking, onDeleteBooking, onEditBooking }) => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
 
   if (!isOpen || !booking) return null;
 
@@ -50,6 +50,9 @@ const BookingInfoDialog: React.FC<BookingInfoDialogProps> = ({ isOpen, onClose, 
     }
     return "N/A";
   }
+
+  // Check if the current user can edit/delete this booking
+  const canEditDelete = isAdmin || (user && booking.bookedByUserId === user.uid);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -85,7 +88,7 @@ const BookingInfoDialog: React.FC<BookingInfoDialogProps> = ({ isOpen, onClose, 
         </div>
         <DialogFooter className="pt-6 sm:justify-between flex-wrap gap-2">
           <div className="flex gap-2 justify-start">
-            {isAdmin && (
+            {canEditDelete && (
               <>
                 <Button variant="outline" onClick={handleEdit} className="flex items-center gap-2">
                   <Edit3 size={16} /> Edit

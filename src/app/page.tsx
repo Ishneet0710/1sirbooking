@@ -9,6 +9,7 @@ import BookingForm from '@/components/venue-flow/BookingForm';
 import BookingInfoDialog from '@/components/venue-flow/BookingInfoDialog';
 import VenueCalendarWrapper from '@/components/venue-flow/VenueCalendarWrapper';
 import RejectionReasonDialog from '@/components/venue-flow/RejectionReasonDialog';
+import BookingAttemptDialog from '@/components/venue-flow/BookingAttemptDialog';
 import { sendEmail } from '@/ai/flows/send-email-flow';
 import { transformBookingsForCalendar, hasConflict as checkHasConflict, generateBookingId } from '@/lib/bookings-utils';
 import { useToast } from '@/hooks/use-toast';
@@ -27,7 +28,7 @@ import {
 } from "@/components/ui/sheet";
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, query, serverTimestamp, doc, updateDoc, addDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, serverTimestamp, doc, updateDoc, addDoc, where } from 'firebase/firestore';
 import { parseISO } from 'date-fns';
 import AppHeader from '@/components/shared/AppHeader';
 
@@ -65,6 +66,10 @@ export default function VenueFlowPage() {
   const [isRejectionDialogOpen, setIsRejectionDialogOpen] = useState(false);
   const [currentAttemptToReject, setCurrentAttemptToReject] = useState<BookingAttempt | null>(null);
 
+  // State for booking attempt dialog
+  const [isBookingAttemptDialogOpen, setIsBookingAttemptDialogOpen] = useState(false);
+  const [selectedBookingAttempt, setSelectedBookingAttempt] = useState<BookingAttempt | null>(null);
+
 
   useEffect(() => {
     setIsLoading(true);
@@ -92,10 +97,20 @@ export default function VenueFlowPage() {
   }, [toast]);
 
   useEffect(() => {
-    if (isAdmin && user) {
-      const attemptsQuery = query(
-        collection(db, "bookingAttempts")
-      );
+    if (user) {
+      let attemptsQuery;
+      
+      if (isAdmin) {
+        // Admin can see all booking attempts
+        attemptsQuery = query(collection(db, "bookingAttempts"));
+      } else {
+        // Regular users can only see their own booking attempts
+        attemptsQuery = query(
+          collection(db, "bookingAttempts"),
+          where("userId", "==", user.uid)
+        );
+      }
+      
       const unsubscribeAttempts = onSnapshot(attemptsQuery, (querySnapshot) => {
         const attempts: BookingAttempt[] = [];
         querySnapshot.forEach((doc) => {
@@ -139,6 +154,10 @@ export default function VenueFlowPage() {
   const pendingBookingAttempts = useMemo(() => {
     return bookingAttempts.filter(attempt => attempt.status === 'pending_approval');
   }, [bookingAttempts]);
+
+  const userBookingAttempts = useMemo(() => {
+    return bookingAttempts.filter(attempt => !isAdmin || attempt.userId === user?.uid);
+  }, [bookingAttempts, isAdmin, user]);
 
   const processedAndGroupedAttempts: GroupedBookingAttempts = useMemo(() => {
     const processed: ProcessedBookingAttempt[] = pendingBookingAttempts.map(attempt => {
@@ -558,6 +577,111 @@ export default function VenueFlowPage() {
     return 'Submit Request';
   }, [bookingFormMode]);
 
+  // Function to handle editing a booking attempt
+  const handleEditBookingAttempt = (bookingAttempt: BookingAttempt) => {
+    // Convert booking attempt to booking format for the form
+    const bookingData: Partial<Booking & { startDate?: Date, endDate?: Date }> = {
+      id: bookingAttempt.id,
+      title: bookingAttempt.requestedTitle,
+      venue: bookingAttempt.requestedVenue,
+      start: bookingAttempt.requestedStart,
+      end: bookingAttempt.requestedEnd,
+      startDate: parseISO(bookingAttempt.requestedStart),
+      endDate: parseISO(bookingAttempt.requestedEnd),
+    };
+    
+    setBookingFormInitialData(bookingData);
+    setBookingFormMode('user_request');
+    setIsBookingAttemptDialogOpen(false);
+    setIsBookingFormOpen(true);
+  };
+
+  // Function to handle deleting a booking attempt
+  const handleDeleteBookingAttempt = async (attemptId: string) => {
+    if (!user) return;
+
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch('/api/booking-attempts', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ id: attemptId }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete booking attempt');
+      }
+
+      toast({
+        title: "Success",
+        description: "Booking request deleted successfully.",
+        variant: "default",
+      });
+
+    } catch (error: any) {
+      console.error("Error deleting booking attempt:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete booking request.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Function to handle clicking on a booking attempt
+  const handleBookingAttemptClick = (bookingAttempt: BookingAttempt) => {
+    setSelectedBookingAttempt(bookingAttempt);
+    setIsBookingAttemptDialogOpen(true);
+  };
+
+  // Function to handle updating a booking attempt
+  const handleUpdateBookingAttempt = async (bookingDataFromForm: Booking): Promise<boolean> => {
+    if (!user) return false;
+
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch('/api/booking-attempts', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          id: bookingDataFromForm.id,
+          requestedTitle: bookingDataFromForm.title,
+          requestedVenue: bookingDataFromForm.venue,
+          requestedStart: bookingDataFromForm.start,
+          requestedEnd: bookingDataFromForm.end,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update booking attempt');
+      }
+
+      toast({
+        title: "Success",
+        description: "Booking request updated successfully.",
+        variant: "default",
+      });
+
+      return true;
+    } catch (error: any) {
+      console.error("Error updating booking attempt:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update booking request.",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
 
   if (isLoading && allBookings.length === 0) {
     return (
@@ -624,6 +748,83 @@ export default function VenueFlowPage() {
     );
   };
 
+  const renderUserBookingRequests = () => {
+    const groupedUserAttempts: { [dateKey: string]: BookingAttempt[] } = {};
+    
+    userBookingAttempts.forEach(attempt => {
+      const dateKey = attempt.requestedStart ? formatToSingaporeTime(parseISO(attempt.requestedStart), 'yyyy-MM-dd') : 'Invalid Date';
+      if (!groupedUserAttempts[dateKey]) {
+        groupedUserAttempts[dateKey] = [];
+      }
+      groupedUserAttempts[dateKey].push(attempt);
+    });
+
+    // Sort by date
+    const sortedDateKeys = Object.keys(groupedUserAttempts)
+      .filter(dateKey => dateKey !== 'Invalid Date')
+      .sort((a, b) => parseISO(a).getTime() - parseISO(b).getTime());
+
+    if (sortedDateKeys.length === 0) {
+      return <p className="text-sm text-muted-foreground">No booking requests found.</p>;
+    }
+
+    return (
+      <ul className="space-y-6">
+        {sortedDateKeys.map(dateKey => (
+          <li key={dateKey}>
+            <h3 className="text-md font-semibold text-primary mb-2 sticky top-0 bg-card/80 backdrop-blur-sm py-1.5 z-10">
+              {formatToSingaporeTime(parseISO(dateKey), 'EEEE, MMMM d, yyyy')}
+            </h3>
+            <ul className="space-y-4 pl-2 border-l border-border ml-1">
+              {groupedUserAttempts[dateKey].map((attempt) => {
+                const getStatusIcon = () => {
+                  switch (attempt.status) {
+                    case 'pending_approval':
+                      return <Hourglass className="h-4 w-4 text-yellow-500" />;
+                    case 'approved':
+                      return <CheckCircle className="h-4 w-4 text-green-500" />;
+                    case 'rejected':
+                      return <XCircle className="h-4 w-4 text-red-500" />;
+                    default:
+                      return <AlertTriangle className="h-4 w-4 text-gray-500" />;
+                  }
+                };
+
+                return (
+                  <li key={attempt.id} className="p-3 bg-muted/50 rounded-lg shadow-sm hover:bg-muted/70 transition-colors cursor-pointer" onClick={() => handleBookingAttemptClick(attempt)}>
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="font-semibold text-foreground text-base">
+                        {attempt.requestedTitle}
+                      </p>
+                      <div className="flex items-center gap-1">
+                        {getStatusIcon()}
+                        <span className="text-xs text-muted-foreground capitalize">
+                          {attempt.status.replace('_', ' ')}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-sm space-y-1 text-muted-foreground">
+                      <p><strong>Venue:</strong> {attempt.requestedVenue}</p>
+                      <p><strong>From:</strong> {formatToSingaporeTime(parseISO(attempt.requestedStart), 'HH:mm')}</p>
+                      <p><strong>To:</strong> {formatToSingaporeTime(parseISO(attempt.requestedEnd), 'HH:mm')}</p>
+                      <p className="text-xs mt-0.5">Requested: {attempt.timestamp?.toDate ? formatToSingaporeTime(attempt.timestamp.toDate(), 'PP p') : 'Processing...'}</p>
+                    </div>
+                    {attempt.status === 'rejected' && attempt.rejectionReason && (
+                      <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs">
+                        <p className="font-medium text-red-800">Rejected:</p>
+                        <p className="text-red-700">{attempt.rejectionReason}</p>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </li>
+        ))}
+      </ul>
+    );
+  };
+
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center p-4 md:p-8">
@@ -636,6 +837,19 @@ export default function VenueFlowPage() {
             selectedVenues={selectedVenues}
             onFilterChange={handleFilterChange}
           />
+          {user && !isAdmin && (
+            <Card className="shadow-lg">
+              <CardHeader>
+                <CardTitle className="text-xl font-headline text-primary flex items-center">
+                  <UserCircle size={20} className="mr-2 text-primary/80"/> My Booking Requests
+                </CardTitle>
+                <CardDescription>View and manage your booking requests</CardDescription>
+              </CardHeader>
+              <CardContent className="pt-2 max-h-[calc(100vh-400px)] overflow-y-auto"> 
+                 {renderUserBookingRequests()}
+              </CardContent>
+            </Card>
+          )}
           {isAdmin && (
             <Card className="shadow-lg">
               <CardHeader>
@@ -697,6 +911,21 @@ export default function VenueFlowPage() {
               </Card>
             </div>
           )}
+          {user && !isAdmin && (
+            <div className="lg:hidden mt-6"> 
+              <Card className="shadow-lg">
+                <CardHeader>
+                 <CardTitle className="text-xl font-headline text-primary flex items-center">
+                    <UserCircle size={20} className="mr-2 text-primary/80"/> My Booking Requests
+                  </CardTitle>
+                  <CardDescription>View and manage your booking requests</CardDescription>
+                </CardHeader>
+                 <CardContent className="pt-2 max-h-96 overflow-y-auto">
+                   {renderUserBookingRequests()}
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
       </main>
 
@@ -735,7 +964,7 @@ export default function VenueFlowPage() {
             setIsBookingFormOpen(false);
             setBookingFormInitialData({}); 
           }}
-          onSubmitBooking={isAdmin ? handleSubmitBooking : handleNonAdminBookingRequest}
+          onSubmitBooking={isAdmin ? handleSubmitBooking : (bookingFormInitialData?.id ? handleUpdateBookingAttempt : handleNonAdminBookingRequest)}
           venues={DEFAULT_VENUES}
           initialData={bookingFormInitialData}
           existingBookingsForVenue={
@@ -764,6 +993,19 @@ export default function VenueFlowPage() {
           }}
           onSubmit={handleRejectBookingRequestWithReason}
           bookingAttemptTitle={currentAttemptToReject.requestedTitle}
+        />
+      )}
+
+      {isBookingAttemptDialogOpen && selectedBookingAttempt && (
+        <BookingAttemptDialog
+          isOpen={isBookingAttemptDialogOpen}
+          onClose={() => {
+            setIsBookingAttemptDialogOpen(false);
+            setSelectedBookingAttempt(null);
+          }}
+          bookingAttempt={selectedBookingAttempt}
+          onDeleteBookingAttempt={handleDeleteBookingAttempt}
+          onEditBookingAttempt={handleEditBookingAttempt}
         />
       )}
     </div>
