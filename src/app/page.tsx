@@ -759,10 +759,19 @@ export default function VenueFlowPage() {
       groupedUserAttempts[dateKey].push(attempt);
     });
 
-    // Sort by date
+    // Sort requests within each date group by latest first (by submission time)
+    Object.keys(groupedUserAttempts).forEach(dateKey => {
+      groupedUserAttempts[dateKey].sort((a, b) => {
+        const timeA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : 0;
+        const timeB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : 0;
+        return timeB - timeA; // Latest first
+      });
+    });
+
+    // Sort by date (latest first)
     const sortedDateKeys = Object.keys(groupedUserAttempts)
       .filter(dateKey => dateKey !== 'Invalid Date')
-      .sort((a, b) => parseISO(a).getTime() - parseISO(b).getTime());
+      .sort((a, b) => parseISO(b).getTime() - parseISO(a).getTime());
 
     if (sortedDateKeys.length === 0) {
       return <p className="text-sm text-muted-foreground">No booking requests found.</p>;
